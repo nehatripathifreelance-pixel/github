@@ -79,6 +79,7 @@ export const Faculty: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [facultyList, setFacultyList] = useState<FacultyMember[]>([]);
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
   const [dbStatus, setDbStatus] = useState<{ connected: boolean; message?: string; details?: string }>({ connected: true });
   const [editingStaff, setEditingStaff] = useState<FacultyMember | null>(null);
 
@@ -134,6 +135,9 @@ export const Faculty: React.FC = () => {
       const saved = localStorage.getItem('edu_nexus_faculty');
       setFacultyList(saved ? JSON.parse(saved) : MOCK_FACULTY);
     } else if (data) {
+      if (data.length > 0) {
+        setAvailableColumns(Object.keys(data[0]));
+      }
       const formattedFaculty: FacultyMember[] = data.map(f => ({
         id: f.id,
         title: f.title,
@@ -181,7 +185,7 @@ export const Faculty: React.FC = () => {
   };
 
   const addFacultyToSupabase = async (formData: any, generatedId: string) => {
-    const staffData = {
+    const staffData: any = {
       id: generatedId,
       name: `${formData.title} ${formData.firstName} ${formData.surname}`,
       first_name: formData.firstName,
@@ -214,7 +218,6 @@ export const Faculty: React.FC = () => {
       mother_occupation: formData.motherOccupation,
       parent_phone: formData.parentPhone,
       parent_email: formData.parentEmail,
-      emergency_contact_name: formData.emergencyName,
       emergency_phone: formData.emergencyPhone,
       emergency_address: formData.emergencyAddress,
       bank_name: formData.bankName,
@@ -227,6 +230,12 @@ export const Faculty: React.FC = () => {
       signature_url: formData.signatureUrl,
       role: 'FACULTY'
     };
+
+    // Dynamically check columns
+    const hasFetchedColumns = availableColumns.length > 0;
+    if (!hasFetchedColumns || availableColumns.includes('emergency_contact_name')) {
+      staffData.emergency_contact_name = formData.emergencyName;
+    }
 
     let error;
     if (editingStaff) {

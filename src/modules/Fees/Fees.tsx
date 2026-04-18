@@ -74,6 +74,7 @@ export const Fees: React.FC = () => {
   const [transactions, setTransactions] = useState<FeeTransaction[]>([]);
   const [feeGroups, setFeeGroups] = useState<FeeGroup[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [paymentSchemes, setPaymentSchemes] = useState<string[]>(['Cash', 'UPI', 'Card', 'Cheque', 'DD']);
   const [searchQuery, setSearchQuery] = useState('');
@@ -167,6 +168,9 @@ export const Fees: React.FC = () => {
       if (error) throw error;
 
       if (data) {
+        if (data.length > 0) {
+          setAvailableColumns(Object.keys(data[0]));
+        }
         setTransactions(data.map(t => {
           const studentData = Array.isArray(t.students) ? t.students[0] : t.students;
           const studentCourse = courses.find(c => c.id === studentData?.branch || c.name === studentData?.branch);
@@ -295,6 +299,15 @@ export const Fees: React.FC = () => {
         transaction_id: form.transactionId || ''
       };
 
+      // Dynamically add columns if they exist in the DB schema
+      const hasFetchedColumns = availableColumns.length > 0;
+      if (!hasFetchedColumns || availableColumns.includes('semester')) {
+        txnData.semester = form.semester || 1;
+      }
+      if (!hasFetchedColumns || availableColumns.includes('year')) {
+        txnData.year = form.year || 1;
+      }
+
       if (!txnData.student_id) {
         alert('Validation Error: Please select a valid student from the search results.');
         setIsSaving(false);
@@ -319,9 +332,17 @@ export const Fees: React.FC = () => {
 
       if (result.error) {
         console.error('Supabase raw error in handleSave:', result.error);
-        const detail = result.error.details || '';
-        const hint = result.error.hint || '';
-        throw new Error(`${result.error.message}\n${detail}\n${hint}`);
+        
+        const errMsg = result.error.message || '';
+        if (errMsg.includes('semester') || errMsg.includes('year') || result.error.code === 'PGRST204') {
+          const sqlFix = "ALTER TABLE fees ADD COLUMN semester INTEGER, ADD COLUMN year INTEGER;";
+          alert(`Database Schema Error: The 'semester' or 'year' column appears to be missing in your Supabase 'fees' table.\n\nPlease run this SQL in your Supabase SQL Editor to fix it:\n\n${sqlFix}`);
+        } else {
+          const detail = result.error.details || '';
+          const hint = result.error.hint || '';
+          alert(`Error saving transaction: ${errMsg}\n${detail}\n${hint}`);
+        }
+        return;
       }
 
       const savedTxn = result.data?.[0];

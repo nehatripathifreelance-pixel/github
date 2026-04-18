@@ -53,6 +53,7 @@ export const PaperSetter: React.FC = () => {
   const [view, setView] = useState<'list' | 'edit'>('list');
   const [papers, setPapers] = useState<Paper[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
   const [dbStatus, setDbStatus] = useState<{ connected: boolean; message?: string; details?: string }>({ connected: true });
   const [paper, setPaper] = useState<Paper>({
     id: `p${Math.random().toString(36).substr(2, 9)}`,
@@ -79,13 +80,16 @@ export const PaperSetter: React.FC = () => {
       // Fetch papers AFTER courses are loaded so mapping works correctly
       const { data: pData, error } = await supabase.from('exam_papers').select('*');
       if (pData) {
+        if (pData.length > 0) {
+          setAvailableColumns(Object.keys(pData[0]));
+        }
         const formattedPapers = pData.map(p => {
           const course = cData?.find(c => c.id === p.course_id);
           return {
             id: p.id,
             title: p.title,
             course: course?.name || p.course_id || 'N/A',
-            subject: 'General',
+            subject: p.subject || 'General',
             totalMarks: p.total_marks,
             duration: p.duration,
             questions: p.questions || []
@@ -109,13 +113,16 @@ export const PaperSetter: React.FC = () => {
       return;
     }
     if (data) {
+      if (data.length > 0) {
+        setAvailableColumns(Object.keys(data[0]));
+      }
       const formattedPapers: Paper[] = data.map(p => {
         const course = courses.find(c => c.id === p.course_id);
         return {
           id: p.id,
           title: p.title,
           course: course?.name || p.course_id || 'N/A',
-          subject: 'General',
+          subject: p.subject || 'General',
           totalMarks: p.total_marks,
           duration: p.duration,
           questions: p.questions || []
@@ -152,37 +159,61 @@ export const PaperSetter: React.FC = () => {
     }
     setIsSaving(true);
     
+    // Dynamically build payload based on available columns to prevent PGRST204 errors
     const paperData: any = {
       title: paper.title,
       course_id: paper.course || null,
       total_marks: paper.totalMarks,
-      duration: paper.duration,
-      questions: paper.questions
+      duration: paper.duration
     };
 
-    let error;
-    if (view === 'edit' && paper.id && !paper.id.startsWith('p')) {
-      const { error: err } = await supabase.from('exam_papers').update(paperData).eq('id', paper.id);
-      error = err;
-    } else {
-      const { error: err } = await supabase.from('exam_papers').insert([paperData]);
-      error = err;
+    // Only add columns if they are known to exist or if we haven't fetched papers yet (assume standard schema)
+    const hasFetchedColumns = availableColumns.length > 0;
+    
+    if (!hasFetchedColumns || availableColumns.includes('questions')) {
+      paperData.questions = paper.questions;
     }
     
-    if (error) {
-      console.error('Error saving paper:', error);
-      setIsSaving(false);
-      alert('Error saving paper: ' + error.message);
-      return;
+    if (availableColumns.includes('subject')) {
+      paperData.subject = paper.subject;
     }
 
-    await fetchPapers();
-    setIsSaving(false);
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setView('list');
-    }, 2000);
+    let error;
+    try {
+      if (view === 'edit' && paper.id && !paper.id.startsWith('p')) {
+        const { error: err } = await supabase.from('exam_papers').update(paperData).eq('id', paper.id);
+        error = err;
+      } else {
+        const { error: err } = await supabase.from('exam_papers').insert([paperData]);
+        error = err;
+      }
+      
+      if (error) {
+        console.error('Error saving paper:', error);
+        
+        // Handle missing column errors specifically
+        if (error.message?.includes('questions') || error.code === 'PGRST204') {
+          const sqlFix = "ALTER TABLE exam_papers ADD COLUMN questions JSONB;";
+          alert(`Database Schema Error: The 'questions' column appears to be missing in your Supabase 'exam_papers' table.\n\nPlease run this SQL in your Supabase SQL Editor to fix it:\n\n${sqlFix}`);
+        } else {
+          alert('Error saving paper: ' + error.message);
+        }
+        setIsSaving(false);
+        return;
+      }
+
+      await fetchPapers();
+      setIsSaving(false);
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setView('list');
+      }, 2000);
+    } catch (err: any) {
+      console.error('Exception saving paper:', err);
+      alert('An unexpected error occurred while saving.');
+      setIsSaving(false);
+    }
   };
 
   const handleCreateNew = () => {

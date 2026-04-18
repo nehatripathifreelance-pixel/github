@@ -86,6 +86,7 @@ interface Student {
 export const Students: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
   const [view, setView] = useState<'list' | 'register'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -152,6 +153,9 @@ export const Students: React.FC = () => {
       const saved = localStorage.getItem('edunexus_students');
       if (saved) setStudents(JSON.parse(saved));
     } else if (data) {
+      if (data.length > 0) {
+        setAvailableColumns(Object.keys(data[0]));
+      }
       const coursesToUse = currentCourses || courses;
       const formattedStudents: Student[] = data.map(s => {
         const studentCourse = coursesToUse.find((c: any) => c.id === s.course_id);
@@ -304,7 +308,7 @@ export const Students: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    const studentData = {
+    const studentData: any = {
       id: editingStudent?.id || generatedId,
       roll_no: formData.rollNumber,
       title: formData.title,
@@ -342,7 +346,6 @@ export const Students: React.FC = () => {
       mother_occupation: formData.motherOccupation,
       parent_phone: formData.parentPhone,
       parent_email: formData.parentEmail,
-      emergency_contact_name: formData.emergencyName,
       emergency_phone: formData.emergencyPhone,
       emergency_address: formData.emergencyAddress,
       allergies: formData.allergy,
@@ -352,6 +355,12 @@ export const Students: React.FC = () => {
       signature_url: formData.signatureUrl,
       status: 'Active'
     };
+
+    // Dynamically add columns if they exist in the DB schema
+    const hasFetchedColumns = availableColumns.length > 0;
+    if (!hasFetchedColumns || availableColumns.includes('emergency_contact_name')) {
+      studentData.emergency_contact_name = formData.emergencyName;
+    }
 
     let result;
     if (editingStudent) {
@@ -387,7 +396,14 @@ export const Students: React.FC = () => {
     if (!result.success) {
       console.error('Save error details:', result.error);
       setIsSubmitting(false);
-      alert(`Failed to save student: ${result.error?.message || 'Unknown error'}`);
+      
+      const errMsg = result.error?.message || 'Unknown error';
+      if (errMsg.includes('emergency_contact_name') || result.error?.code === 'PGRST204') {
+        const sqlFix = "ALTER TABLE students ADD COLUMN emergency_contact_name TEXT;";
+        alert(`Database Schema Error: The 'emergency_contact_name' column appears to be missing in your Supabase 'students' table.\n\nPlease run this SQL in your Supabase SQL Editor to fix it:\n\n${sqlFix}\n\nAlternatively, run the full setup script again.`);
+      } else {
+        alert(`Failed to save student: ${errMsg}`);
+      }
       return;
     }
 

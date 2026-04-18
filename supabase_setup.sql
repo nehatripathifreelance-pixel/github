@@ -1,4 +1,10 @@
 -- =========================================================
+-- CMS FULL DATABASE SETUP (Supabase SQL Editor)
+-- Version: 1.3
+-- Updated: 2026-04-18
+-- =========================================================
+
+-- =========================================================
 -- EXTENSIONS
 -- =========================================================
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -121,7 +127,7 @@ CREATE TABLE students (
 );
 
 -- =========================================================
--- 5. STAFF
+-- 5. STAFF (FACULTY)
 -- =========================================================
 CREATE TABLE staff (
     id TEXT PRIMARY KEY,
@@ -186,6 +192,7 @@ CREATE TABLE enquiries (
 CREATE TABLE applications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     full_name TEXT NOT NULL,
+    name TEXT, -- Fallback
     email TEXT,
     phone TEXT NOT NULL,
     course_id UUID REFERENCES courses(id),
@@ -224,8 +231,8 @@ CREATE TABLE fees (
     payment_mode TEXT,
     payment_method TEXT,
     transaction_id TEXT,
-    semester INTEGER,
-    year INTEGER,
+    semester INTEGER, -- Critical Fix (Turn 26 Log)
+    year INTEGER,     -- Critical Fix (Turn 26 Log)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -286,7 +293,7 @@ CREATE TABLE attendance (
 );
 
 -- =========================================================
--- 10. EXAMS (FIXED ORDER)
+-- 10. EXAMS
 -- =========================================================
 
 -- PAPERS
@@ -297,14 +304,7 @@ CREATE TABLE exam_papers (
     subject TEXT,
     total_marks INTEGER,
     duration INTEGER,
-    questions JSONB
-);
-
--- QUESTIONS
-CREATE TABLE exam_questions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    paper_id UUID REFERENCES exam_papers(id) ON DELETE CASCADE,
-    question_text TEXT
+    questions JSONB -- Questions Storage Fix (Turn 26 Log)
 );
 
 -- EXAMS
@@ -378,7 +378,7 @@ CREATE TABLE study_activities (
 );
 
 -- =========================================================
--- HELPER FUNCTION
+-- HELPER FUNCTIONS
 -- =========================================================
 CREATE OR REPLACE FUNCTION is_connected() 
 RETURNS BOOLEAN AS $$
@@ -394,19 +394,26 @@ DO $$
 DECLARE 
   t text;
   tables text[] := ARRAY[
-    'app_settings','user_credentials','students','staff','courses',
-    'enquiries','applications','fee_groups','fees','income','expenses',
-    'income_categories','expense_categories','attendance',
-    'exam_papers','exam_questions','exams','results',
-    'syllabus','timetable','study_activities'
+    'app_settings', 'user_credentials', 'students', 'staff', 'courses',
+    'enquiries', 'applications', 'fee_groups', 'fees', 'income', 'expenses',
+    'income_categories', 'expense_categories', 'attendance',
+    'exam_papers', 'exams', 'results', 'syllabus', 'timetable', 'study_activities'
   ];
 BEGIN
   FOR t IN SELECT unnest(tables) LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
 
+    -- Basic "allow all for connected" policy for simplicity in development
+    EXECUTE format('DROP POLICY IF EXISTS "select_%I" ON %I', t, t);
     EXECUTE format('CREATE POLICY "select_%I" ON %I FOR SELECT USING (true)', t, t);
+    
+    EXECUTE format('DROP POLICY IF EXISTS "insert_%I" ON %I', t, t);
     EXECUTE format('CREATE POLICY "insert_%I" ON %I FOR INSERT WITH CHECK (is_connected())', t, t);
+    
+    EXECUTE format('DROP POLICY IF EXISTS "update_%I" ON %I', t, t);
     EXECUTE format('CREATE POLICY "update_%I" ON %I FOR UPDATE USING (is_connected())', t, t);
+    
+    EXECUTE format('DROP POLICY IF EXISTS "delete_%I" ON %I', t, t);
     EXECUTE format('CREATE POLICY "delete_%I" ON %I FOR DELETE USING (is_connected())', t, t);
   END LOOP;
 END $$;
@@ -421,7 +428,8 @@ INSERT INTO courses (name, code, department, duration, semesters, fee_amount) VA
 ('B.Tech IT', 'BTIT', 'Engineering', '4 Years', 8, 115000),
 ('B.Tech Mechanical', 'BTME', 'Engineering', '4 Years', 8, 110000),
 ('B.Tech Civil', 'BTCE', 'Engineering', '4 Years', 8, 110000),
-('Bachelor of Physiotherapy', 'BPT', 'Medical', '4.5 Years', 9, 95000);
+('Bachelor of Physiotherapy', 'BPT', 'Medical', '4.5 Years', 9, 95000)
+ON CONFLICT DO NOTHING;
 
 -- App Settings (Academic Config)
 INSERT INTO app_settings (key, value) VALUES
@@ -433,22 +441,25 @@ INSERT INTO app_settings (key, value) VALUES
   "castes": ["General", "OBC", "SC", "ST", "EWS"],
   "categories": ["Regular", "Lateral", "Merit", "Management"],
   "semesters": ["1", "2", "3", "4", "5", "6", "7", "8"]
-}');
+}') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 -- Categories
 INSERT INTO income_categories (name, description) VALUES
 ('Fees', 'Student tuition and other fees'),
 ('Donation', 'Voluntary contributions'),
 ('Grant', 'Government or institutional grants'),
-('Other', 'Miscellaneous income');
+('Other', 'Miscellaneous income')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO expense_categories (name, description) VALUES
 ('Salary', 'Staff salary and wages'),
 ('Maintenance', 'Building and equipment maintenance'),
 ('Utility', 'Electricity, water, and internet bills'),
 ('Events', 'College events and fests'),
-('Others', 'Miscellaneous expenses');
+('Others', 'Miscellaneous expenses')
+ON CONFLICT DO NOTHING;
 
 -- Admin User
 INSERT INTO user_credentials (id, password, role, name, email) VALUES
-('admin', 'admin123', 'SUPER_ADMIN', 'Super Admin', 'admin@cms.com');
+('admin', 'admin123', 'SUPER_ADMIN', 'Super Admin', 'admin@cms.com')
+ON CONFLICT (id) DO NOTHING;

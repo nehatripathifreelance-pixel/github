@@ -41,6 +41,7 @@ interface AdmissionApplication {
 
 export const Admissions: React.FC = () => {
   const [applications, setApplications] = useState<AdmissionApplication[]>([]);
+  const [availableColumns, setAvailableColumns] = useState<string[]>([]);
   const [branches, setBranches] = useState<string[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [stats, setStats] = useState({
@@ -102,6 +103,9 @@ export const Admissions: React.FC = () => {
         updateStats(parsed);
       }
     } else if (data) {
+      if (data.length > 0) {
+        setAvailableColumns(Object.keys(data[0]));
+      }
       console.log(`Fetched ${data.length} applications`);
       const coursesToUse = currentCourses || courses;
       const formatted: AdmissionApplication[] = data.map(a => {
@@ -176,7 +180,12 @@ export const Admissions: React.FC = () => {
 
       if (error) {
         console.error('Supabase error saving application:', error);
-        alert(`Failed to save application: ${error.message}`);
+        
+        if (error.code === 'PGRST204') {
+          alert(`Database Schema Error: Some required columns appear to be missing in your Supabase 'applications' table. Please run the full setup script again in your SQL Editor.`);
+        } else {
+          alert(`Failed to save application: ${error.message}`);
+        }
         return;
       }
 
