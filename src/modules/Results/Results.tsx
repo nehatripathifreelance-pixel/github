@@ -42,11 +42,24 @@ export const Results: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [user, setUser] = useState<any>(null);
+  const [settings, setSettings] = useState<any>({});
 
   useEffect(() => {
     fetchUser();
     fetchData();
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    const { data } = await supabase.from('app_settings').select('*');
+    if (data) {
+      const settingsObj = data.reduce((acc: any, curr: any) => {
+        acc[curr.key] = curr.value;
+        return acc;
+      }, {});
+      setSettings(settingsObj.academic || {});
+    }
+  };
 
   const fetchUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -132,6 +145,102 @@ export const Results: React.FC = () => {
 
   const handleExportExcel = () => {
     exportToExcel(filteredResults, 'Exam_Results');
+  };
+
+  const handleDownloadSheet = (url: string, name: string) => {
+    if (!url) return;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Answer_Sheet_${name.replace(/\s+/g, '_')}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadReceipt = (result: any) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const content = `
+      <html>
+        <head>
+          <title>Result Receipt - ${result.studentName}</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; max-width: 800px; margin: 0 auto; }
+            .header { text-align: center; border-bottom: 2px solid #ef4444; padding-bottom: 20px; margin-bottom: 30px; }
+            .college { font-size: 24px; font-weight: 900; color: #ef4444; text-transform: uppercase; margin: 0; }
+            .title { font-size: 18px; font-weight: 700; margin-top: 10px; }
+            .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 30px 0; }
+            .stat-box { background: #f8fafc; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; }
+            .stat-label { font-size: 10px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 5px; }
+            .stat-value { font-size: 24px; font-weight: 900; }
+            .info-table { width: 100%; border-collapse: collapse; margin: 30px 0; }
+            .info-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+            .info-label { font-weight: 700; color: #475569; width: 150px; }
+            .status { display: inline-block; padding: 4px 12px; rounded-pill: 9999px; font-size: 10px; font-weight: 900; text-transform: uppercase; border-radius: 999px; }
+            .passed { background: #f0fdf4; color: #166534; }
+            .failed { background: #fef2f2; color: #991b1b; }
+            .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #94a3b8; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            ${settings.logo ? `<img src="${settings.logo}" style="width: 80px; height: 80px; object-fit: contain; margin-bottom: 10px;" referrerPolicy="no-referrer" />` : ''}
+            <h1 class="college">Academic Result Receipt</h1>
+            <p class="title">Result for ${result.examTitle}</p>
+          </div>
+          
+          <div class="stats">
+            <div class="stat-box">
+              <div class="stat-label">Marks Obtained</div>
+              <div class="stat-value">${result.marks} / ${result.totalMarks}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Percentage</div>
+              <div class="stat-value">${Math.round((result.marks / result.totalMarks) * 100)}%</div>
+            </div>
+          </div>
+
+          <table class="info-table">
+            <tr>
+              <td class="info-label">Student Name</td>
+              <td>${result.studentName}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Registration ID</td>
+              <td>${result.studentRoll}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Subject</td>
+              <td>${result.subject}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Examination Date</td>
+              <td>${result.date}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Result Status</td>
+              <td>
+                <span class="status ${result.status.toLowerCase()}">${result.status}</span>
+              </td>
+            </tr>
+          </table>
+
+          <div class="footer">
+            <p>This is a computer generated result receipt and does not require a physical signature.</p>
+            <p>Generated on ${new Date().toLocaleString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      // printWindow.close(); // Keep it open for them to save as PDF if they want
+    }, 500);
   };
 
   return (
@@ -377,10 +486,20 @@ export const Results: React.FC = () => {
 
                 {/* Scanned Sheet Preview */}
                 <div className="space-y-4">
-                  <h4 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-primary" />
-                    Scanned Answer Sheet
-                  </h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-primary" />
+                      Scanned Answer Sheet
+                    </h4>
+                    {selectedResult.scannedSheetUrl && (
+                      <button 
+                        onClick={() => handleDownloadSheet(selectedResult.scannedSheetUrl, selectedResult.studentName)}
+                        className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1 hover:underline"
+                      >
+                        <Download className="w-3 h-3" /> Download Paper
+                      </button>
+                    )}
+                  </div>
                   <div className="aspect-[3/4] bg-slate-100 rounded-[40px] border-4 border-slate-50 overflow-hidden relative shadow-inner">
                     {selectedResult.scannedSheetUrl ? (
                       selectedResult.scannedSheetUrl.includes('application/pdf') || selectedResult.scannedSheetUrl.endsWith('.pdf') ? (
@@ -416,7 +535,10 @@ export const Results: React.FC = () => {
               >
                 Close
               </button>
-              <button className="px-8 py-3 bg-primary text-white rounded-2xl text-sm font-black hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
+              <button 
+                onClick={() => handleDownloadReceipt(selectedResult)}
+                className="px-8 py-3 bg-primary text-white rounded-2xl text-sm font-black hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+              >
                 <Download className="w-4 h-4" />
                 Download Receipt
               </button>

@@ -21,7 +21,8 @@ import {
   X,
   ClipboardList,
   FileText,
-  History
+  History,
+  MessageSquare
 } from 'lucide-react';
 import { cn, formatDate } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -69,6 +70,8 @@ interface TimeTableSlot {
   faculty: string;
   room: string;
   day: string;
+  type: string;
+  batch: string;
   startTime: string;
   endTime: string;
 }
@@ -94,6 +97,8 @@ export const Courses: React.FC = () => {
   const [timetable, setTimetable] = useState<TimeTableSlot[]>([]);
   const [syllabus, setSyllabus] = useState<SyllabusItem[]>([]);
   const [studyLogs, setStudyLogs] = useState<StudyActivity[]>([]);
+  const [selectedBatch, setSelectedBatch] = useState<string>('All');
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('All');
   
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   const [isTimetableModalOpen, setIsTimetableModalOpen] = useState(false);
@@ -224,9 +229,107 @@ export const Courses: React.FC = () => {
     }
   };
 
+  const handlePrintTimetable = (course?: Course, batch?: string) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const filteredTimetable = timetable.filter(s => 
+      (!course || s.courseId === course.id) && 
+      (!batch || batch === 'All' || s.batch === batch)
+    );
+
+    const title = `${course?.name || 'Academic'} Timetable ${batch && batch !== 'All' ? `- ${batch}` : ''}`;
+
+    const content = `
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; color: #1e293b; }
+            .header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid #ef4444; }
+            .title { font-size: 24px; font-weight: 800; color: #ef4444; text-transform: uppercase; margin: 0; }
+            .subtitle { color: #64748b; font-size: 14px; margin-top: 5px; font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
+            th { background: #f8fafc; padding: 12px; font-size: 10px; font-weight: 900; color: #64748b; text-transform: uppercase; border: 1px solid #e2e8f0; }
+            td { padding: 12px; border: 1px solid #e2e8f0; font-size: 12px; vertical-align: top; }
+            .slot { background: #f1f5f9; padding: 8px; border-radius: 8px; margin-bottom: 4px; }
+            .slot-subject { font-weight: 800; font-size: 11px; color: #0f172a; display: block; }
+            .slot-info { font-size: 10px; color: #64748b; font-weight: 500; }
+            .time-col { background: #f8fafc; font-weight: 800; width: 120px; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 class="title">${title}</h1>
+            <p class="subtitle">Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th class="time-col">Time Slot</th>
+                ${DAYS.map(day => `<th>${day}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${TIME_SLOTS.map(slot => {
+                const startTime = slot.split(' - ')[0];
+                return `
+                  <tr>
+                    <td class="time-col">${slot}</td>
+                    ${DAYS.map(day => {
+                      const daySlots = filteredTimetable.filter(s => s.day === day && s.startTime === startTime);
+                      return `
+                        <td>
+                          ${daySlots.map(s => `
+                            <div class="slot">
+                              <span class="slot-subject">${s.subject}</span>
+                              <span class="slot-info">${s.faculty} (${s.room})</span>
+                              ${!batch || batch === 'All' ? `<span class="slot-info" style="display:block; font-style:italic;">Batch: ${s.batch}</span>` : ''}
+                            </div>
+                          `).join('')}
+                        </td>
+                      `;
+                    }).join('')}
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+  };
+
+  const handleShareWhatsApp = (type: 'Timetable' | 'StudyLog', data: any) => {
+    let text = `*Academic ${type} Update*\n\n`;
+    
+    if (type === 'Timetable') {
+      text += `Course: ${data.courseName}\nBatch: ${data.batch}\n\n`;
+      text += `Check out the updated timetable on the Parents Panel.`;
+    } else {
+      text += `*Study Log for ${formatDate(data.date)}*\n`;
+      text += `Batch: ${data.batch}\n`;
+      text += `Course: ${data.courseName}\n\n`;
+      text += `*Activities:*\n${data.activities.map((a: string, i: number) => `${i+1}. ${a}`).join('\n')}\n\n`;
+      if (data.assignmentSubject) text += `*Assignment:* ${data.assignmentSubject} - ${data.assignmentTopic}\n`;
+      if (data.remarks) text += `*Remarks:* ${data.remarks}\n`;
+    }
+
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
   const handleAddSlot = async () => {
     const data = {
       course_id: slotForm.courseId || '',
+      batch: slotForm.batch || '',
+      type: slotForm.type || 'Regular',
       subject: slotForm.subject || '',
       faculty: slotForm.faculty || '',
       room: slotForm.room || '',
@@ -373,6 +476,8 @@ export const Courses: React.FC = () => {
               faculty: faculties[Math.floor(Math.random() * faculties.length)],
               room: rooms[Math.floor(Math.random() * rooms.length)],
               day,
+              type: 'Regular',
+              batch: ['Morning', 'Evening', 'Weekend'][Math.floor(Math.random() * 3)],
               startTime: timeRange[0],
               endTime: timeRange[1]
             });
@@ -382,6 +487,7 @@ export const Courses: React.FC = () => {
       
       const formattedSlots = newSlots.map(slot => ({
         course_id: slot.courseId,
+        batch: slot.batch,
         subject: slot.subject,
         faculty: slot.faculty,
         room: slot.room,
@@ -636,6 +742,59 @@ export const Courses: React.FC = () => {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
+            {/* Actions & Filters */}
+            <div className="bg-white p-8 rounded-[32px] border border-primary/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Filter Course</p>
+                  <select 
+                    value={selectedCourseId}
+                    onChange={(e) => setSelectedCourseId(e.target.value)}
+                    className="bg-background border-none rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  >
+                    <option value="All">All Courses</option>
+                    {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Filter Batch</p>
+                  <select 
+                    value={selectedBatch}
+                    onChange={(e) => setSelectedBatch(e.target.value)}
+                    className="bg-background border-none rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  >
+                    <option value="All">All Batches</option>
+                    <option value="Morning">Morning</option>
+                    <option value="Evening">Evening</option>
+                    <option value="Afternoon">Afternoon</option>
+                    <option value="Weekend">Weekend</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => handlePrintTimetable(
+                    selectedCourseId !== 'All' ? courses.find(c => c.id === selectedCourseId) : undefined,
+                    selectedBatch
+                  )}
+                  className="flex items-center gap-2 px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl text-sm font-bold hover:bg-indigo-100 transition-all border border-indigo-100"
+                >
+                  <Printer className="w-5 h-5" />
+                  Print Timetable
+                </button>
+                <button 
+                  onClick={() => handleShareWhatsApp('Timetable', { 
+                    courseName: selectedCourseId !== 'All' ? courses.find(c => c.id === selectedCourseId)?.name : 'All Courses',
+                    batch: selectedBatch
+                  })}
+                  className="flex items-center gap-2 px-6 py-3 bg-green-50 text-green-600 rounded-2xl text-sm font-bold hover:bg-green-100 transition-all border border-green-100"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                  Share on WhatsApp
+                </button>
+              </div>
+            </div>
+
             {/* Time Table View */}
             <div className="bg-white rounded-3xl border border-primary/10 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
@@ -659,7 +818,12 @@ export const Courses: React.FC = () => {
                         </td>
                         {DAYS.map(day => {
                           const startTime = slot.split(' - ')[0];
-                          const daySlots = timetable.filter(s => s.day === day && s.startTime === startTime);
+                          const daySlots = timetable.filter(s => 
+                            s.day === day && 
+                            s.startTime === startTime &&
+                            (selectedCourseId === 'All' || s.courseId === selectedCourseId) &&
+                            (selectedBatch === 'All' || s.batch === selectedBatch)
+                          );
                           
                           return (
                             <td key={day} className="px-4 py-4 min-w-[200px]">
@@ -668,10 +832,24 @@ export const Courses: React.FC = () => {
                                   {daySlots.map(s => (
                                     <div 
                                       key={s.id}
-                                      className="p-3 bg-primary/5 border border-primary/10 rounded-2xl relative group/slot"
+                                      className={cn(
+                                        "p-3 border rounded-2xl relative group/slot",
+                                        s.type === 'Holiday' ? "bg-rose-50 border-rose-100" :
+                                        s.type === 'Event' ? "bg-amber-50 border-amber-100" :
+                                        "bg-primary/5 border-primary/10"
+                                      )}
                                     >
                                       <div className="flex items-center justify-between mb-1">
-                                        <p className="text-xs font-black text-primary uppercase tracking-tight">{s.subject}</p>
+                                        <div className="flex items-center gap-1.5 overflow-hidden">
+                                          {s.type === 'Holiday' && <span className="px-1.5 py-0.5 bg-rose-500 text-white text-[8px] font-black uppercase rounded shrink-0">Holiday</span>}
+                                          {s.type === 'Event' && <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-black uppercase rounded shrink-0">Event</span>}
+                                          <p className={cn(
+                                            "text-xs font-black uppercase tracking-tight truncate",
+                                            s.type === 'Holiday' ? "text-rose-600" :
+                                            s.type === 'Event' ? "text-amber-600" :
+                                            "text-primary"
+                                          )}>{s.subject}</p>
+                                        </div>
                                         <div className="flex items-center gap-1 opacity-0 group-hover/slot:opacity-100 transition-opacity">
                                           <button 
                                             onClick={() => {
@@ -699,6 +877,7 @@ export const Courses: React.FC = () => {
                                         <MapPin className="w-3 h-3" />
                                         {s.room}
                                       </div>
+                                      <div className="mt-1 text-[9px] font-black text-primary/40 uppercase tracking-widest">{s.batch}</div>
                                     </div>
                                   ))}
                                 </div>
@@ -825,9 +1004,19 @@ export const Courses: React.FC = () => {
                           <p className="text-xs text-slate-500 font-bold">{log.batch} • {course?.name}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <button 
-                          onClick={() => {
+                        <div className="flex items-center gap-1">
+                          <button 
+                            onClick={() => handleShareWhatsApp('StudyLog', {
+                              ...log,
+                              courseName: course?.name || 'Course'
+                            })}
+                            className="p-2 text-green-500 hover:bg-green-50 rounded-lg transition-all"
+                            title="Share on WhatsApp"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => {
                             setEditingStudyLog(log);
                             setStudyLogForm(log);
                             setIsStudyLogModalOpen(true);
@@ -1038,6 +1227,20 @@ export const Courses: React.FC = () => {
             </div>
             <div className="p-8 space-y-6">
               <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2 col-span-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Slot Type</label>
+                  <select 
+                    value={slotForm.type || 'Regular'}
+                    onChange={(e) => setSlotForm({...slotForm, type: e.target.value})}
+                    className="w-full px-4 py-3 bg-background border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all border-none"
+                  >
+                    <option value="Regular">Regular Class</option>
+                    <option value="Holiday">Holiday</option>
+                    <option value="Event">Event / Seminar</option>
+                    <option value="Lab">Lab Session</option>
+                    <option value="Exam">Examination</option>
+                  </select>
+                </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Course</label>
                   <select 
@@ -1088,6 +1291,20 @@ export const Courses: React.FC = () => {
                   >
                     <option value="">Select Day</option>
                     {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Batch</label>
+                  <select 
+                    value={slotForm.batch || ''}
+                    onChange={(e) => setSlotForm({...slotForm, batch: e.target.value})}
+                    className="w-full px-4 py-3 bg-background border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  >
+                    <option value="">Select Batch</option>
+                    <option value="Morning">Morning</option>
+                    <option value="Evening">Evening</option>
+                    <option value="Afternoon">Afternoon</option>
+                    <option value="Weekend">Weekend</option>
                   </select>
                 </div>
                 <div className="space-y-2">

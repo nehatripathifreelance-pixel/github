@@ -18,12 +18,17 @@ import {
   Filter,
   User,
   MapPin,
-  LayoutDashboard
+  LayoutDashboard,
+  Megaphone,
+  Bell,
+  Volume2
 } from 'lucide-react';
 import { cn, formatCurrency, formatDate } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
+
+import { NoticeTicker } from '../../components/NoticeTicker';
 
 interface StudentData {
   id: string;
@@ -49,6 +54,7 @@ export const StudentPanel: React.FC = () => {
   const [timetable, setTimetable] = useState<any[]>([]);
   const [syllabus, setSyllabus] = useState<any[]>([]);
   const [studyLogs, setStudyLogs] = useState<any[]>([]);
+  const [notices, setNotices] = useState<any[]>([]);
   
   // Exam Interface states
   const [activeView, setActiveView] = useState<'panel' | 'take_exam'>('panel');
@@ -58,8 +64,43 @@ export const StudentPanel: React.FC = () => {
   useEffect(() => {
     if (user) {
       fetchStudentData();
+      fetchNotices();
+
+      // Real-time notices
+      const channel = supabase
+        .channel('notices_student')
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'notices' 
+        }, (payload) => {
+          if (payload.new.target_audience === 'All' || payload.new.target_audience === 'Students') {
+            setNotices(prev => [payload.new, ...prev]);
+            playNotificationSound();
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user]);
+
+  const playNotificationSound = () => {
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    audio.play().catch(e => console.log('Could not play notification sound:', e));
+  };
+
+  const fetchNotices = async () => {
+    const { data } = await supabase
+      .from('notices')
+      .select('*')
+      .or('target_audience.eq.All,target_audience.eq.Students')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (data) setNotices(data);
+  };
 
   const fetchStudentData = async () => {
     setIsLoading(true);
@@ -262,6 +303,9 @@ export const StudentPanel: React.FC = () => {
 
   return (
     <div className="space-y-8">
+      {/* Live Notice Ticker */}
+      <NoticeTicker audience="Students" />
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
@@ -317,6 +361,38 @@ export const StudentPanel: React.FC = () => {
           >
             {/* Stats */}
             <div className="lg:col-span-2 space-y-8">
+              {/* Broadcast Notices */}
+              {notices.length > 0 && (
+                <div className="bg-white p-8 rounded-[32px] border border-primary/10 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                      <Megaphone className="w-5 h-5 text-indigo-600" />
+                      Important Notices
+                    </h3>
+                    <span className="px-2 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase rounded-lg">Recent</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {notices.slice(0, 2).map((notice, i) => (
+                      <div key={`notice-${i}`} className="p-5 bg-indigo-50/30 rounded-3xl border border-indigo-100 group relative overflow-hidden transition-all hover:bg-indigo-50/50">
+                        <div className="flex items-start gap-4">
+                          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+                            <Bell className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[10px] font-bold text-indigo-400">{formatDate(notice.created_at)}</span>
+                            </div>
+                            <h4 className="font-bold text-slate-800 text-sm truncate">{notice.title}</h4>
+                            <p className="text-xs text-slate-600 mt-1 line-clamp-1 font-medium">{notice.content}</p>
+                          </div>
+                          <Volume2 className="w-10 h-10 absolute -right-3 -bottom-3 text-indigo-200/20 group-hover:scale-110 transition-transform" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-[32px] border border-primary/10 shadow-sm">
                   <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-4">
@@ -687,8 +763,24 @@ export const StudentPanel: React.FC = () => {
                         return (
                           <td key={day} className="px-4 py-4 min-w-[180px]">
                             {daySlots.map(s => (
-                              <div key={s.id} className="p-4 bg-white border border-primary/10 rounded-2xl shadow-sm">
-                                <p className="text-xs font-black text-primary uppercase tracking-tight mb-1">{s.subject}</p>
+                              <div 
+                                key={s.id} 
+                                className={cn(
+                                  "p-4 border rounded-2xl shadow-sm",
+                                  s.type === 'Holiday' ? "bg-rose-50 border-rose-100" :
+                                  s.type === 'Event' ? "bg-amber-50 border-amber-100" :
+                                  "bg-white border-primary/10"
+                                )}
+                              >
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  {s.type === 'Holiday' && <span className="px-1.5 py-0.5 bg-rose-500 text-white text-[8px] font-black uppercase rounded shrink-0">Holiday</span>}
+                                  {s.type === 'Event' && <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-black uppercase rounded shrink-0">Event</span>}
+                                  <p className={cn(
+                                    "text-xs font-black uppercase tracking-tight truncate",
+                                    s.type === 'Holiday' ? "text-rose-600" :
+                                    s.type === 'Event' ? "text-amber-600" : "text-primary"
+                                  )}>{s.subject}</p>
+                                </div>
                                 <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold">
                                   <User className="w-3 h-3" />
                                   {s.faculty}

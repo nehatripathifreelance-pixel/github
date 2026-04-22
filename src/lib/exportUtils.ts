@@ -1,13 +1,6 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-
-// Extend jsPDF with autotable
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 export const exportToPDF = (title: string, headers: string[], data: any[][], fileName: string) => {
   const doc = new jsPDF();
@@ -27,7 +20,7 @@ export const exportToPDF = (title: string, headers: string[], data: any[][], fil
   doc.text(`Generated on: ${dateStr}`, 14, 30);
   
   // Add table
-  doc.autoTable({
+  autoTable(doc, {
     startY: 35,
     head: [headers],
     body: data,

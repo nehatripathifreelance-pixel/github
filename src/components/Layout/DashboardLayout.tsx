@@ -26,13 +26,15 @@ import {
   Heart,
   CheckCircle2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Megaphone
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { NotificationType } from '../../lib/notifications';
+import { NoticeTicker } from '../NoticeTicker';
 
 interface Notification {
   id: string;
@@ -60,6 +62,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { title: 'Students', icon: Users, path: '/students', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL', 'STAFF'] },
   { title: 'Faculty', icon: UserCheck, path: '/faculty', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL', 'STAFF'] },
   { title: 'Parents', icon: Heart, path: '/parents', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL', 'STAFF'] },
+  { title: 'Communication', icon: Megaphone, path: '/communication', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL'] },
   { title: 'Courses', icon: BookOpen, path: '/courses', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL', 'FACULTY', 'STUDENT'] },
   { title: 'Attendance', icon: ClipboardList, path: '/attendance', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL', 'FACULTY', 'STUDENT'] },
   { title: 'Exams', icon: FileText, path: '/exams', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL', 'FACULTY', 'STUDENT'] },
@@ -147,6 +150,15 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const getNoticeAudience = () => {
+    const role = user.role;
+    if (['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL'].includes(role)) return 'Admin';
+    if (['FACULTY', 'STAFF', 'LIBRARIAN', 'ACCOUNTANT'].includes(role)) return 'Staff';
+    if (role === 'STUDENT') return 'Students';
+    if (role === 'PARENT') return 'Parents';
+    return 'All';
   };
 
   return (
@@ -344,8 +356,11 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto overflow-x-hidden">
-          {children}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto overflow-x-hidden relative">
+          <div className="max-w-7xl mx-auto">
+            <NoticeTicker audience={getNoticeAudience() as any} />
+            {children}
+          </div>
         </main>
       </div>
 

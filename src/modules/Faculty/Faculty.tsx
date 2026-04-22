@@ -305,6 +305,8 @@ export const Faculty: React.FC = () => {
     staffDocsUrl: '',
     nomineeDocsUrl: '',
     signatureUrl: '',
+    loginId: '',
+    loginPassword: '12345',
   };
 
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
@@ -315,7 +317,9 @@ export const Faculty: React.FC = () => {
     if (view === 'register' && !editingStaff) {
       const year = new Date().getFullYear();
       const random = Math.floor(1000 + Math.random() * 9000);
-      setGeneratedId(`FAC${year}${random}`);
+      const staffId = `FAC${year}${random}`;
+      setGeneratedId(staffId);
+      setFormData(prev => ({ ...prev, loginId: staffId }));
     }
   }, [view, editingStaff]);
 
@@ -337,11 +341,11 @@ export const Faculty: React.FC = () => {
 
     const result = await addFacultyToSupabase(formData, generatedId);
 
-    if (result.success && !editingStaff) {
-      // Create User Credentials for Login only for new staff
+    if (result.success) {
+      // Create or Update User Credentials for Login
       await supabase.from('user_credentials').upsert({
-        id: generatedId,
-        password: '12345',
+        id: formData.loginId || editingStaff?.id || generatedId,
+        password: formData.loginPassword,
         role: 'FACULTY',
         name: `${formData.firstName} ${formData.surname}`,
         email: formData.email
@@ -421,7 +425,16 @@ export const Faculty: React.FC = () => {
         staffDocsUrl: (data.staff_documents && data.staff_documents[0]) || '',
         nomineeDocsUrl: (data.nominee_documents && data.nominee_documents[0]) || '',
         signatureUrl: data.signature_url || '',
+        loginId: data.id,
+        loginPassword: '12345' // Default
       });
+
+      // Fetch existing password
+      const { data: creds } = await supabase.from('user_credentials').select('password').eq('id', data.id).single();
+      if (creds) {
+        setFormData(prev => ({ ...prev, loginPassword: creds.password }));
+      }
+
       setGeneratedId(data.id);
       setEditingStaff(staff);
       setView('register');
@@ -609,6 +622,51 @@ export const Faculty: React.FC = () => {
           className="bg-white rounded-3xl border border-primary/10 shadow-xl overflow-hidden"
         >
           <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-12">
+            {/* Login Credentials Section */}
+            <div className="space-y-8 bg-indigo-50/50 p-8 rounded-[32px] border border-indigo-100/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-indigo-900">Login Credentials</h3>
+                  <p className="text-sm text-indigo-700/70 font-medium">Manage staff authentication access</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Employee ID / Login Username</label>
+                  <div className="relative">
+                    <Users className="w-4 h-4 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input 
+                      type="text" 
+                      name="loginId"
+                      required
+                      value={formData.loginId}
+                      onChange={handleInputChange}
+                      disabled={!!editingStaff}
+                      className="w-full pl-11 pr-4 py-3 bg-white border-none rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Login Password</label>
+                  <div className="relative">
+                    <AlertCircle className="w-4 h-4 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input 
+                      type="text" 
+                      name="loginPassword"
+                      required
+                      value={formData.loginPassword}
+                      onChange={handleInputChange}
+                      className="w-full pl-11 pr-4 py-3 bg-white border-none rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Section: Personal Information */}
             <div className="space-y-8">
               <div className="flex items-center gap-3 pb-4 border-b border-primary/10">

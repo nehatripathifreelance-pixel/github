@@ -20,7 +20,10 @@ import {
   Download,
   Edit2,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Megaphone,
+  Volume2,
+  Bell
 } from 'lucide-react';
 import { cn, formatCurrency, formatDate } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
@@ -65,6 +68,8 @@ interface Result {
   };
 }
 
+import { NoticeTicker } from '../../components/NoticeTicker';
+
 export const FacultyPanel: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'attendance' | 'timetable' | 'exams' | 'evaluation' | 'syllabus' | 'studylog'>('overview');
@@ -78,6 +83,7 @@ export const FacultyPanel: React.FC = () => {
   const [timetable, setTimetable] = useState<any[]>([]);
   const [syllabus, setSyllabus] = useState<any[]>([]);
   const [studyLogs, setStudyLogs] = useState<any[]>([]);
+  const [notices, setNotices] = useState<any[]>([]);
 
   // Filter State
   const [selectedCourse, setSelectedCourse] = useState<string>('');
@@ -97,7 +103,43 @@ export const FacultyPanel: React.FC = () => {
 
   useEffect(() => {
     fetchInitialData();
+    fetchNotices();
+
+    // Real-time notices
+    const channel = supabase
+      .channel('notices_faculty')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'notices' 
+      }, (payload) => {
+        // Only show if targeted at All or Staff
+        if (payload.new.target_audience === 'All' || payload.new.target_audience === 'Staff') {
+          setNotices(prev => [payload.new, ...prev]);
+          playNotificationSound();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
+
+  const playNotificationSound = () => {
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    audio.play().catch(e => console.log('Could not play notification sound:', e));
+  };
+
+  const fetchNotices = async () => {
+    const { data } = await supabase
+      .from('notices')
+      .select('*')
+      .or('target_audience.eq.All,target_audience.eq.Staff')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (data) setNotices(data);
+  };
 
   const fetchInitialData = async () => {
     setIsLoading(true);
@@ -255,6 +297,9 @@ export const FacultyPanel: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
+      {/* Live Notice Ticker */}
+      <NoticeTicker audience="Staff" />
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-primary tracking-tight">Faculty Panel</h1>
@@ -324,6 +369,40 @@ export const FacultyPanel: React.FC = () => {
                   </div>
                   <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Pending Results</p>
                   <p className="text-3xl font-black text-slate-900">{exams.filter(e => e.results_status === 'PENDING').length}</p>
+                </div>
+              </div>
+
+              {/* Announcements */}
+              <div className="bg-white p-8 rounded-[32px] border border-primary/10 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                    <Megaphone className="w-5 h-5 text-indigo-600" />
+                    Notice Board
+                  </h3>
+                  <span className="px-2 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase rounded-lg">Real-time</span>
+                </div>
+                <div className="space-y-4">
+                  {notices.map((notice, i) => (
+                    <div key={`notice-${i}`} className="p-5 bg-indigo-50/30 rounded-3xl border border-indigo-100 group relative overflow-hidden transition-all hover:bg-indigo-50/50">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-indigo-600 shadow-sm shrink-0">
+                          <Bell className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-bold text-indigo-400">{formatDate(notice.created_at)}</span>
+                            <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase rounded">{notice.type}</span>
+                          </div>
+                          <h4 className="font-bold text-slate-800 text-sm">{notice.title}</h4>
+                          <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">{notice.content}</p>
+                        </div>
+                        <Volume2 className="w-10 h-10 absolute -right-3 -bottom-3 text-indigo-200/20 group-hover:scale-110 transition-transform" />
+                      </div>
+                    </div>
+                  ))}
+                  {notices.length === 0 && (
+                    <div className="py-8 text-center text-slate-400 font-bold">No notifications yet.</div>
+                  )}
                 </div>
               </div>
 
@@ -538,11 +617,27 @@ export const FacultyPanel: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {timetable.map((slot) => (
-                    <tr key={slot.id} className="hover:bg-primary/5 transition-colors">
+                    <tr key={slot.id} className={cn(
+                      "transition-colors",
+                      slot.type === 'Holiday' ? "bg-rose-50/30 hover:bg-rose-50/50" :
+                      slot.type === 'Event' ? "bg-amber-50/30 hover:bg-amber-50/50" :
+                      "hover:bg-primary/5"
+                    )}>
                       <td className="px-8 py-5 text-sm font-black text-slate-800">{slot.day}</td>
                       <td className="px-8 py-5 text-sm font-bold text-slate-600">{slot.start_time} - {slot.end_time}</td>
-                      <td className="px-8 py-5 text-sm font-black text-primary">{slot.subject}</td>
-                      <td className="px-8 py-5 text-sm font-bold text-slate-700">{slot.courses?.name}</td>
+                      <td className="px-8 py-5">
+                        <div className="flex items-center gap-2">
+                          {slot.type === 'Holiday' && <span className="px-1.5 py-0.5 bg-rose-500 text-white text-[8px] font-black uppercase rounded">Holiday</span>}
+                          {slot.type === 'Event' && <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-black uppercase rounded">Event</span>}
+                          <span className={cn(
+                            "text-sm font-black",
+                            slot.type === 'Holiday' ? "text-rose-600" :
+                            slot.type === 'Event' ? "text-amber-600" :
+                            "text-primary"
+                          )}>{slot.subject}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5 text-sm font-bold text-slate-700">{slot.courses?.name || 'Academic'}</td>
                       <td className="px-8 py-5 text-sm font-bold text-slate-500">{slot.room}</td>
                     </tr>
                   ))}

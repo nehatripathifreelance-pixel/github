@@ -19,7 +19,9 @@ import {
   Image as ImageIcon,
   Upload,
   X as CloseIcon,
-  AlertTriangle
+  AlertTriangle,
+  Printer,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
@@ -44,6 +46,8 @@ interface Paper {
   title: string;
   course: string;
   subject: string;
+  set?: string;
+  instructions?: string;
   totalMarks: number;
   duration: number;
   questions: Question[];
@@ -55,12 +59,15 @@ export const PaperSetter: React.FC = () => {
   const [courses, setCourses] = useState<any[]>([]);
   const [availableColumns, setAvailableColumns] = useState<string[]>([]);
   const [dbStatus, setDbStatus] = useState<{ connected: boolean; message?: string; details?: string }>({ connected: true });
+  const [settings, setSettings] = useState<any>({});
   const [paper, setPaper] = useState<Paper>({
     id: `p${Math.random().toString(36).substr(2, 9)}`,
     title: '',
     course: '',
     subject: '',
-    totalMarks: 100,
+    set: 'Set 1',
+    instructions: 'Your answer should be specific to the questions asked. Draw neat, labeled diagram wherever necessary.',
+    totalMarks: 75,
     duration: 180,
     questions: []
   });
@@ -76,6 +83,16 @@ export const PaperSetter: React.FC = () => {
       
       const { data: cData } = await supabase.from('courses').select('*');
       if (cData) setCourses(cData);
+
+      // Fetch Settings
+      const { data: sData } = await supabase.from('app_settings').select('*');
+      if (sData) {
+        const settingsObj = sData.reduce((acc: any, curr: any) => {
+          acc[curr.key] = curr.value;
+          return acc;
+        }, {});
+        setSettings(settingsObj.academic || {});
+      }
       
       // Fetch papers AFTER courses are loaded so mapping works correctly
       const { data: pData, error } = await supabase.from('exam_papers').select('*');
@@ -90,6 +107,8 @@ export const PaperSetter: React.FC = () => {
             title: p.title,
             course: course?.name || p.course_id || 'N/A',
             subject: p.subject || 'General',
+            set: p.set_code || 'Set 1',
+            instructions: p.instructions || 'Standard Instructions',
             totalMarks: p.total_marks,
             duration: p.duration,
             questions: p.questions || []
@@ -123,6 +142,8 @@ export const PaperSetter: React.FC = () => {
           title: p.title,
           course: course?.name || p.course_id || 'N/A',
           subject: p.subject || 'General',
+          set: p.set_code || 'Set 1',
+          instructions: p.instructions || 'Standard Instructions',
           totalMarks: p.total_marks,
           duration: p.duration,
           questions: p.questions || []
@@ -143,7 +164,9 @@ export const PaperSetter: React.FC = () => {
         id: data.id,
         title: data.title,
         course: data.course_id || '',
-        subject: 'General',
+        subject: data.subject || 'General',
+        set: data.set_code || 'Set 1',
+        instructions: data.instructions || '',
         totalMarks: data.total_marks,
         duration: data.duration,
         questions: data.questions || []
@@ -178,6 +201,29 @@ export const PaperSetter: React.FC = () => {
       paperData.subject = paper.subject;
     }
 
+    try {
+      if (availableColumns.includes('set_code')) {
+        paperData.set_code = paper.set;
+      } else {
+        // Try to add it if it's missing (one-time fix helper)
+        await supabase.rpc('add_column_if_missing', { table_name: 'exam_papers', column_name: 'set_code', column_type: 'TEXT' });
+        paperData.set_code = paper.set;
+      }
+    } catch (e) {
+      console.warn('Could not handle set_code column automatically:', e);
+    }
+
+    try {
+      if (availableColumns.includes('instructions')) {
+        paperData.instructions = paper.instructions;
+      } else {
+        await supabase.rpc('add_column_if_missing', { table_name: 'exam_papers', column_name: 'instructions', column_type: 'TEXT' });
+        paperData.instructions = paper.instructions;
+      }
+    } catch (e) {
+      console.warn('Could not handle instructions column automatically:', e);
+    }
+
     let error;
     try {
       if (view === 'edit' && paper.id && !paper.id.startsWith('p')) {
@@ -192,9 +238,8 @@ export const PaperSetter: React.FC = () => {
         console.error('Error saving paper:', error);
         
         // Handle missing column errors specifically
-        if (error.message?.includes('questions') || error.code === 'PGRST204') {
-          const sqlFix = "ALTER TABLE exam_papers ADD COLUMN questions JSONB;";
-          alert(`Database Schema Error: The 'questions' column appears to be missing in your Supabase 'exam_papers' table.\n\nPlease run this SQL in your Supabase SQL Editor to fix it:\n\n${sqlFix}`);
+        if (error.message?.includes('questions') || error.code === 'PGRST204' || error.message?.includes('column') || error.message?.includes('does not exist')) {
+          alert(`Database Error: It looks like some columns are missing in your table. \n\nPlease use the "Troubleshoot Database Schema" button in the Paper Configuration panel to fix this.`);
         } else {
           alert('Error saving paper: ' + error.message);
         }
@@ -222,11 +267,126 @@ export const PaperSetter: React.FC = () => {
       title: '',
       course: '',
       subject: '',
-      totalMarks: 100,
+      set: 'Set 1',
+      instructions: 'Your answer should be specific to the questions asked. Draw neat, labeled diagram wherever necessary.',
+      totalMarks: 75,
       duration: 180,
       questions: []
     });
     setView('edit');
+  };
+
+  const handlePrint = (targetPaper: Paper = paper) => {
+    const courseName = courses.find(c => c.id === targetPaper.course)?.name || targetPaper.course;
+    
+    // Group questions by type for sections if desired, or just list them
+    // For the specific image look, we might want sections
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const logoHtml = settings.logo ? `<img src="${settings.logo}" style="width: 80px; height: 80px; object-fit: contain;" referrerPolicy="no-referrer" />` : '';
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${targetPaper.title}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
+            body { 
+              font-family: 'Inter', sans-serif; 
+              padding: 40px; 
+              color: #1a1a1a;
+              line-height: 1.5;
+            }
+            .header { text-align: center; margin-bottom: 30px; position: relative; }
+            .logo-container { position: absolute; left: 0; top: 0; }
+            .college-name { font-size: 28px; font-weight: 800; text-transform: uppercase; margin: 0; color: #000; }
+            .foundation-name { font-size: 16px; font-weight: 600; margin: 5px 0; }
+            .address { font-size: 14px; margin: 5px 0; font-weight: 500; }
+            .courses-info { font-size: 14px; margin: 5px 0; font-weight: 600; color: #333; }
+            
+            .exam-details { text-align: center; margin-bottom: 20px; border-top: 2px solid #000; padding-top: 15px; }
+            .exam-title { font-size: 20px; font-weight: 800; margin: 5px 0; }
+            .exam-course { font-size: 18px; font-weight: 700; margin: 5px 0; }
+            .exam-subject { font-size: 18px; font-weight: 700; margin: 5px 0; text-decoration: underline; }
+            
+            .instructions { font-size: 13px; font-style: italic; margin-bottom: 20px; text-align: center; max-width: 80%; margin-left: auto; margin-right: auto; line-height: 1.4; }
+            
+            .meta-info { display: flex; justify-content: space-between; margin-bottom: 30px; font-weight: 700; font-size: 15px; }
+            
+            .question-item { margin-bottom: 20px; position: relative; }
+            .question-number { font-weight: 700; margin-right: 10px; }
+            .question-text { display: inline; }
+            .marks { float: right; font-weight: 700; }
+            
+            .section-title { font-weight: 800; text-decoration: underline; margin-top: 25px; margin-bottom: 15px; font-size: 16px; }
+            
+            .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; padding-left: 25px; }
+            .option { font-size: 14px; }
+            
+            @media print {
+              body { padding: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body onload="window.print()">
+          <div class="header">
+            <div class="logo-container">${logoHtml}</div>
+            <p class="foundation-name">${settings.foundation_name || 'Sri Kailashnath Foundation ®'}</p>
+            <h1 class="college-name">${settings.name || 'SUN GROUP OF INSTITUTIONS'}</h1>
+            <p class="address">${settings.address || 'Sakinaka Andheri (e) Mumbai 400072 Phone-9833057189/9902925117'}</p>
+            <p class="courses-info">(Courses : B.Pharm, BPT, D.Pharm, B.Sc. Nursing & Other 100+ courses)</p>
+          </div>
+          
+          <div class="exam-details">
+            <h2 class="exam-title">${targetPaper.title}</h2>
+            <h3 class="exam-course">${courseName}</h3>
+            <h3 class="exam-subject">${targetPaper.subject} - ${targetPaper.set || 'Set 1'}</h3>
+          </div>
+          
+          <div class="instructions">
+            ${targetPaper.instructions || ''}
+          </div>
+          
+          <div class="meta-info">
+            <div>Time : ${Math.floor(targetPaper.duration / 60)} Hours</div>
+            <div>Max. Mark : ${targetPaper.totalMarks} Marks</div>
+          </div>
+          
+          <div class="questions-container">
+            ${targetPaper.questions.map((q, idx) => `
+              <div class="question-item">
+                <span class="question-number">${idx + 1}.</span>
+                <div class="question-text">
+                  ${q.text}
+                  ${q.type === 'MCQ' && q.options ? `
+                    <div class="options-grid">
+                      ${q.options.map((opt, i) => `
+                        <div class="option">${String.fromCharCode(65 + i)}) ${opt}</div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+                  ${q.diagramUrl ? `
+                    <div style="margin-top: 15px; text-align: center;">
+                      <img src="${q.diagramUrl}" style="max-width: 300px; max-height: 200px; border: 1px solid #ccc; padding: 5px;" />
+                    </div>
+                  ` : ''}
+                </div>
+                <span class="marks">${q.marks} Marks</span>
+                <div style="clear: both;"></div>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div style="margin-top: 60px; display: flex; justify-content: space-between;" class="no-print">
+            <button onclick="window.print()" style="padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer;">Print Again</button>
+            <button onclick="window.close()" style="padding: 10px 20px; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;">Close</button>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const handleDeletePaper = async (id: string | number) => {
@@ -272,6 +432,33 @@ export const PaperSetter: React.FC = () => {
       ...paper,
       questions: paper.questions.map(q => q.id === id ? { ...q, ...updates } : q)
     });
+  };
+
+  const fixDatabase = async () => {
+    setIsSaving(true);
+    try {
+      const sqlQueries = [
+        "ALTER TABLE exam_papers ADD COLUMN IF NOT EXISTS questions JSONB DEFAULT '[]'::jsonb;",
+        "ALTER TABLE exam_papers ADD COLUMN IF NOT EXISTS set_code TEXT;",
+        "ALTER TABLE exam_papers ADD COLUMN IF NOT EXISTS instructions TEXT;",
+        "ALTER TABLE exam_papers ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;"
+      ];
+      
+      alert("I've prepared the fix for your database schema. Please copy and run these queries in your Supabase SQL Editor if the automatic fix doesn't work:\n\n" + sqlQueries.join("\n"));
+      
+      // Attempt automatic fix via RPC if available
+      await supabase.rpc('add_column_if_missing', { table_name: 'exam_papers', column_name: 'questions', column_type: 'JSONB' });
+      await supabase.rpc('add_column_if_missing', { table_name: 'exam_papers', column_name: 'set_code', column_type: 'TEXT' });
+      await supabase.rpc('add_column_if_missing', { table_name: 'exam_papers', column_name: 'instructions', column_type: 'TEXT' });
+      
+      await fetchPapers();
+      alert("Automatic fix attempted. Please try saving again.");
+    } catch (err) {
+      console.error("Fix failed:", err);
+      alert("Automatic fix failed. Please manually update your database schema in Supabase using the SQL Editor.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -348,6 +535,16 @@ export const PaperSetter: React.FC = () => {
                        <button 
                          onClick={(e) => {
                            e.stopPropagation();
+                           handlePrint(p);
+                         }}
+                         className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                         title="Print Question Paper"
+                       >
+                         <Printer className="w-4 h-4" />
+                       </button>
+                       <button 
+                         onClick={(e) => {
+                           e.stopPropagation();
                            fetchPaper(p.id);
                          }}
                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
@@ -409,11 +606,15 @@ export const PaperSetter: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button className="p-2 text-slate-500 hover:bg-primary/5 rounded-lg transition-colors border border-primary/10">
-                <Eye className="w-5 h-5" />
+              <button 
+                onClick={() => handlePrint()}
+                className="p-2 text-slate-500 hover:bg-primary/5 rounded-lg transition-colors border border-primary/10"
+                title="Print / PDF"
+              >
+                <Printer className="w-5 h-5" />
               </button>
               <button className="p-2 text-slate-500 hover:bg-primary/5 rounded-lg transition-colors border border-primary/10">
-                <Copy className="w-5 h-5" />
+                <Download className="w-5 h-5" />
               </button>
               <button 
                 onClick={savePaper}
@@ -459,6 +660,13 @@ export const PaperSetter: React.FC = () => {
               Paper Configuration
             </h3>
             <div className="space-y-3">
+              <button 
+                onClick={fixDatabase}
+                className="w-full text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-colors py-1 border border-dashed border-slate-200 rounded flex items-center justify-center gap-2"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                Troubleshoot Database Schema
+              </button>
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Paper Title</label>
                 <input 
@@ -493,6 +701,16 @@ export const PaperSetter: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Set / Version</label>
+                  <input 
+                    type="text" 
+                    value={paper.set}
+                    onChange={(e) => setPaper({ ...paper, set: e.target.value })}
+                    placeholder="Set 1"
+                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+                <div>
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Marks</label>
                   <input 
                     type="number" 
@@ -501,15 +719,23 @@ export const PaperSetter: React.FC = () => {
                     className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                   />
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Duration (Min)</label>
-                  <input 
-                    type="number" 
-                    value={paper.duration}
-                    onChange={(e) => setPaper({ ...paper, duration: parseInt(e.target.value) })}
-                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
+              </div>
+              <div>
+                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Instructions</label>
+                 <textarea 
+                   value={paper.instructions}
+                   onChange={(e) => setPaper({ ...paper, instructions: e.target.value })}
+                   className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-h-[80px]"
+                 />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Duration (Min)</label>
+                <input 
+                  type="number" 
+                  value={paper.duration}
+                  onChange={(e) => setPaper({ ...paper, duration: parseInt(e.target.value) })}
+                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
               </div>
             </div>
           </div>

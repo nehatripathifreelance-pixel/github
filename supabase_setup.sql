@@ -302,10 +302,18 @@ CREATE TABLE exam_papers (
     title TEXT,
     course_id UUID REFERENCES courses(id),
     subject TEXT,
+    set_code TEXT,
+    instructions TEXT,
     total_marks INTEGER,
     duration INTEGER,
-    questions JSONB -- Questions Storage Fix (Turn 26 Log)
+    questions JSONB, -- Questions Storage Fix (Turn 26 Log)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migration helpers for PaperSetter
+ALTER TABLE exam_papers ADD COLUMN IF NOT EXISTS set_code TEXT;
+ALTER TABLE exam_papers ADD COLUMN IF NOT EXISTS instructions TEXT;
+ALTER TABLE exam_papers ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
 
 -- EXAMS
 CREATE TABLE exams (
@@ -356,12 +364,26 @@ CREATE TABLE syllabus (
 CREATE TABLE timetable (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     course_id UUID REFERENCES courses(id),
+    batch TEXT, -- Added for batch-wise filtering
     day TEXT,
+    type TEXT DEFAULT 'Regular', -- Regular, Holiday, Event, Lab, Exam
     subject TEXT,
     start_time TEXT,
     end_time TEXT,
     faculty TEXT,
     room TEXT
+);
+
+CREATE TABLE notices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    content TEXT,
+    type TEXT DEFAULT 'Notice',
+    target_audience TEXT DEFAULT 'All',
+    attachment_url TEXT,
+    created_by UUID,
+    is_template BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE study_activities (
@@ -397,7 +419,7 @@ DECLARE
     'app_settings', 'user_credentials', 'students', 'staff', 'courses',
     'enquiries', 'applications', 'fee_groups', 'fees', 'income', 'expenses',
     'income_categories', 'expense_categories', 'attendance',
-    'exam_papers', 'exams', 'results', 'syllabus', 'timetable', 'study_activities'
+    'exam_papers', 'exams', 'results', 'syllabus', 'timetable', 'study_activities', 'notices'
   ];
 BEGIN
   FOR t IN SELECT unnest(tables) LOOP
@@ -417,6 +439,20 @@ BEGIN
     EXECUTE format('CREATE POLICY "delete_%I" ON %I FOR DELETE USING (is_connected())', t, t);
   END LOOP;
 END $$;
+
+-- Helper function for dynamic schema updates
+CREATE OR REPLACE FUNCTION add_column_if_missing(table_name text, column_name text, column_type text)
+RETURNS void AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_name = $1 AND column_name = $2
+  ) THEN
+    EXECUTE format('ALTER TABLE %I ADD COLUMN %I %s', $1, $2, $3);
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =========================================================
 -- SEED DATA

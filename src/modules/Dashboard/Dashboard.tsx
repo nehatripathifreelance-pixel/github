@@ -42,6 +42,7 @@ import { cn, formatCurrency, formatDate } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, testSupabaseConnection } from '../../lib/supabase';
 import QRCode from 'react-qr-code';
+import { NoticeTicker } from '../../components/NoticeTicker';
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444'];
 

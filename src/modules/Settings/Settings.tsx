@@ -36,6 +36,7 @@ export const Settings: React.FC = () => {
     const saved = localStorage.getItem('edu_nexus_general_settings');
     return saved ? JSON.parse(saved) : {
       collegeName: 'Sun Group of Institutions',
+      foundationName: 'Sri Kailashnath Foundation®',
       address: 'B-10, Industrial Market, Below Sakinaka Metro Station Near Gate Number 5, Sakinaka, Andheri East, Mumbai 400072\nLandmark - Aster Hotel/ Airtel Gallery\n( Near Gate Number 5 of Sakinaka Metro Station)',
       website: 'https://sungroupofinstitution.com',
       email: 'admin@sungroupofinstitution.com',
@@ -95,7 +96,19 @@ export const Settings: React.FC = () => {
     email: '',
     name: ''
   });
+  const [credSearchQuery, setCredSearchQuery] = useState('');
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
+  const togglePasswordVisibility = (id: string) => {
+    setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const filteredCredentials = panelCredentials.filter(cred => 
+    (cred.name || '').toLowerCase().includes(credSearchQuery.toLowerCase()) ||
+    (cred.id || '').toLowerCase().includes(credSearchQuery.toLowerCase()) ||
+    (cred.role || '').toLowerCase().includes(credSearchQuery.toLowerCase()) ||
+    (cred.email || '').toLowerCase().includes(credSearchQuery.toLowerCase())
+  );
   const handleOpenCredModal = (cred?: any, index?: number) => {
     if (cred) {
       setEditingCred({ ...cred, index });
@@ -522,7 +535,17 @@ export const Settings: React.FC = () => {
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2 space-y-2">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Foundation Name</label>
+                  <input 
+                    type="text" 
+                    value={generalSettings.foundationName}
+                    onChange={(e) => setGeneralSettings({...generalSettings, foundationName: e.target.value})}
+                    placeholder="e.g. Sri Kailashnath Foundation®"
+                    className="w-full px-4 py-3 bg-background border-none rounded-xl text-sm font-bold text-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Institution Name</label>
                   <input 
                     type="text" 
@@ -692,21 +715,36 @@ export const Settings: React.FC = () => {
             exit={{ opacity: 0, x: -20 }}
             className="bg-white rounded-3xl border border-primary/10 shadow-sm overflow-hidden"
           >
-            <div className="p-8 border-b border-primary/10 bg-primary/5 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-primary flex items-center gap-2">
-                  <Shield className="w-5 h-5" />
-                  Panel Access Configuration
-                </h3>
-                <p className="text-sm text-slate-500 mt-1">Manage login credentials for all user roles.</p>
+            <div className="p-8 border-b border-primary/10 bg-primary/5 space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-primary flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    Panel Access Configuration
+                  </h3>
+                  <p className="text-sm text-slate-500 mt-1">Manage login credentials for all user roles, staff, and students.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => handleOpenCredModal()}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Account
+                  </button>
+                </div>
               </div>
-              <button 
-                onClick={() => handleOpenCredModal()}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                Add Role
-              </button>
+
+              <div className="relative">
+                <Shield className="w-4 h-4 text-primary absolute left-4 top-1/2 -translate-y-1/2" />
+                <input 
+                  type="text"
+                  placeholder="Search by ID, Name, Role or Email..."
+                  value={credSearchQuery}
+                  onChange={(e) => setCredSearchQuery(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 bg-white border border-primary/10 rounded-2xl text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                />
+              </div>
             </div>
             
             <div className="overflow-x-auto">
@@ -722,32 +760,49 @@ export const Settings: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {panelCredentials.map((panel, index) => (
-                    <tr key={index} className="hover:bg-primary/5 transition-colors">
+                  {filteredCredentials.slice(0, 100).map((panel, index) => (
+                    <tr key={index} className="hover:bg-primary/5 transition-colors group">
                       <td className="px-8 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                          <div className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center",
+                            panel.role === 'STUDENT' ? "bg-emerald-100 text-emerald-600" :
+                            panel.role === 'FACULTY' ? "bg-amber-100 text-amber-600" :
+                            "bg-primary/10 text-primary"
+                          )}>
                             <UserCheck className="w-4 h-4" />
                           </div>
-                          <span className="font-bold text-sm text-primary">{panel.role}</span>
+                          <span className="font-bold text-sm text-slate-700">{panel.role}</span>
                         </div>
                       </td>
-                      <td className="px-8 py-4 text-sm font-medium text-slate-700">{panel.name || '-'}</td>
-                      <td className="px-8 py-4 text-sm font-mono font-bold text-slate-600">{panel.id}</td>
-                      <td className="px-8 py-4 text-sm text-slate-500">••••••••</td>
-                      <td className="px-8 py-4 text-sm text-slate-500">{panel.email || '-'}</td>
+                      <td className="px-8 py-4 text-sm font-bold text-slate-700">{panel.name || '-'}</td>
+                      <td className="px-8 py-4 text-sm font-mono font-bold text-primary">{panel.id}</td>
+                      <td className="px-8 py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-mono text-slate-500">
+                            {showPasswords[panel.id] ? panel.password : '••••••••'}
+                          </span>
+                          <button 
+                            onClick={() => togglePasswordVisibility(panel.id)}
+                            className="p-1 text-slate-400 hover:text-primary opacity-0 group-hover:opacity-100 transition-all"
+                          >
+                            <Shield className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-8 py-4 text-sm text-slate-500 italic">{panel.email || 'No email set'}</td>
                       <td className="px-8 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button 
                             onClick={() => handleOpenCredModal(panel, index)}
-                            className="p-2 text-slate-400 hover:text-primary transition-colors"
+                            className="p-2 text-slate-400 hover:text-primary transition-colors hover:bg-white rounded-lg shadow-sm"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           {panel.role !== 'Super Admin' && panel.role !== 'Admin' ? (
                             <button 
                               onClick={() => deletePanel(index)}
-                              className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                              className="p-2 text-slate-400 hover:text-red-500 transition-colors hover:bg-white rounded-lg shadow-sm"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -760,6 +815,20 @@ export const Settings: React.FC = () => {
                       </td>
                     </tr>
                   ))}
+                  {filteredCredentials.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-8 py-12 text-center text-slate-500 font-medium">
+                        No credentials found matching your search.
+                      </td>
+                    </tr>
+                  )}
+                  {filteredCredentials.length > 100 && (
+                    <tr>
+                      <td colSpan={6} className="px-8 py-4 text-center text-slate-400 text-xs font-bold uppercase tracking-widest bg-slate-50">
+                        Showing first 100 results. Use search to find specific accounts.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

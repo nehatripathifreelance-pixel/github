@@ -92,6 +92,7 @@ export const Fees: React.FC = () => {
 
   const [settings, setSettings] = useState<any>({
     collegeName: 'Sun Group of Institutions',
+    foundationName: 'Sri Kailashnath Foundation®',
     address: 'B-10, Industrial Market, Sakinaka, Mumbai',
     logo: '',
     website: '',
@@ -820,6 +821,8 @@ export const Fees: React.FC = () => {
     if (printWindow) {
       const totalAmount = txn.amount + txn.fine - txn.discount;
       const amountInWords = "Only";
+      const now = new Date();
+      const printDateTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
       printWindow.document.write(`
         <html>
@@ -834,9 +837,17 @@ export const Fees: React.FC = () => {
                 background-color: #fff;
                 color: #000;
               }
+              .print-top-info {
+                display: flex;
+                justify-content: space-between;
+                font-size: 10px;
+                color: #666;
+                margin-bottom: 5px;
+                padding: 0 5px;
+              }
               .receipt-container {
                 border: 2px solid #000;
-                padding: 20px;
+                padding: 15px;
                 max-width: 800px;
                 margin: 0 auto;
                 background-color: #fff;
@@ -844,9 +855,9 @@ export const Fees: React.FC = () => {
                 page-break-inside: avoid;
               }
               .header { text-align: center; position: relative; margin-bottom: 2px; padding-bottom: 5px; border-bottom: 2px solid #ef4444; }
-              .logo { position: absolute; left: 10px; top: 0; width: 50px; height: 50px; object-fit: contain; }
+              .logo { position: absolute; left: 10px; top: 0; width: 60px; height: 60px; object-fit: contain; }
               .foundation-name { font-size: 13px; font-weight: bold; margin: 0; }
-              .institution-name { font-size: 22px; font-weight: 900; margin: 2px 0; color: #ef4444; text-transform: uppercase; }
+              .institution-name { font-size: 24px; font-weight: 900; margin: 2px 0; color: #ef4444; text-transform: uppercase; }
               .estd { font-size: 10px; position: absolute; right: 10px; top: 0; }
               .id-no { font-size: 10px; position: absolute; right: 10px; top: 18px; border: 1px solid #000; padding: 2px 10px; border-radius: 15px; background: white; }
               .tagline { font-size: 11px; font-style: italic; color: #444; margin: 2px 0; }
@@ -859,55 +870,59 @@ export const Fees: React.FC = () => {
                 color: #000;
                 text-transform: uppercase;
               }
-              .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; font-size: 12px; }
-              .info-item { border-bottom: 1px dotted #000; padding: 2px 0; display: flex; align-items: flex-end; overflow: hidden; }
-              .info-label { font-weight: bold; margin-right: 5px; font-size: 11px; white-space: nowrap; }
+              .info-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 8px; margin-bottom: 15px; font-size: 12px; }
+              .info-item { border-bottom: 1px dotted #000; padding: 2px 0; display: flex; align-items: flex-end; }
+              .info-label { font-weight: bold; margin-right: 8px; font-size: 11px; white-space: nowrap; }
               
-              table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 12px; }
-              th, td { border: 1px solid #000; padding: 6px; text-align: left; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12px; }
+              th, td { border: 1px solid #000; padding: 8px; text-align: left; }
               th { background-color: #f9fafb; font-weight: bold; text-transform: uppercase; }
               .col-sr { width: 40px; text-align: center; }
               .col-amt { width: 120px; text-align: right; }
               
-              .total-words { font-size: 12px; margin: 10px 0; border-bottom: 1px dotted #000; padding-bottom: 3px; }
-              .notice { font-size: 9px; line-height: 1.2; margin-top: 10px; color: #444; border-top: 1px solid #eee; padding-top: 5px; }
-              .signatures { display: flex; justify-content: space-between; margin-top: 40px; font-size: 13px; font-weight: bold; }
-              .sig-line { border-top: 1.5px solid #000; padding-top: 5px; min-width: 140px; text-align: center; }
-              .footer-address { text-align: center; font-size: 9px; margin-top: 15px; border-top: 1px solid #000; padding-top: 5px; font-weight: bold; color: #333; }
+              .total-words { font-size: 12px; margin: 15px 0; border-bottom: 1px dotted #000; padding-bottom: 5px; }
+              .notice { font-size: 9px; line-height: 1.3; margin-top: 15px; color: #333; border-top: 1px solid #eee; padding-top: 8px; }
+              .signatures { display: flex; justify-content: space-between; margin-top: 60px; font-size: 13px; font-weight: bold; }
+              .sig-line { border-top: 1.5px solid #000; padding-top: 5px; min-width: 160px; text-align: center; }
+              .footer-address { text-align: center; font-size: 9px; margin-top: 20px; border-top: 1px solid #000; padding-top: 8px; font-weight: bold; color: #333; }
             </style>
           </head>
           <body>
+            <div class="print-top-info">
+              <span>${printDateTime}</span>
+              <span>Fee Receipt - ${txn.id}</span>
+            </div>
             <div class="receipt-container">
               <div class="header">
-                ${settings.logo ? `<img src="${settings.logo}" class="logo" />` : `<div class="logo bg-slate-200"></div>`}
+                ${settings.logo ? `<img src="${settings.logo}" class="logo" referrerPolicy="no-referrer" />` : `<div class="logo" style="background: transparent;"></div>`}
                 <p class="estd">Estd. 2015</p>
-                <div class="id-no" title="${txn.id}">I.D. No: ${txn.id.substring(0, 15)}${txn.id.length > 15 ? '...' : ''}</div>
-                <p class="foundation-name">Sri Kailashnath Foundation®</p>
+                <div class="id-no">I.D. No: ${txn.id.substring(0, 18)}</div>
+                <p class="foundation-name">${settings.foundationName || 'Sri Kailashnath Foundation®'}</p>
                 <h1 class="institution-name">${settings.collegeName || 'SUN GROUP OF INSTITUTIONS'}</h1>
                 <p class="tagline">"Education is a seed of success..."</p>
               </div>
 
-              <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px dashed #000; margin-bottom: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #000; margin-bottom: 10px;">
                 <span style="font-size: 11px; font-weight: bold;">Admission | Lecture | Training assistance | Placement assistance</span>
                 <span style="font-size: 13px; font-weight: bold;">Date: ${formatDate(txn.date)}</span>
               </div>
 
-              <div class="receipt-title">Fee Receipt</div>
+              <div class="receipt-title">FEE RECEIPT</div>
 
               <div class="info-grid">
-                <div class="info-item"><span class="info-label">Name of the Candidate:</span> ${txn.student}</div>
-                <div class="info-item"><span class="info-label">Course:</span> ${txn.feeGroup}</div>
-                <div class="info-item"><span class="info-label">Sem/Year:</span> ${txn.frequency}</div>
-                <div class="info-item"><span class="info-label">Batch/Reg.No.:</span> ${txn.roll}</div>
+                <div class="info-item"><span class="info-label">Name of the Candidate: </span> ${txn.student}</div>
+                <div class="info-item"><span class="info-label">Course: </span> ${txn.feeGroup}</div>
+                <div class="info-item"><span class="info-label">Sem/Year: </span> ${txn.semester || 'N/A'} / ${txn.year || 'N/A'}</div>
+                <div class="info-item"><span class="info-label">Batch/Reg.No.: </span> ${txn.roll}</div>
               </div>
 
               <table>
                 <thead>
                   <tr>
-                    <th class="col-sr">Sr. No.</th>
-                    <th>Particulars</th>
-                    <th>Mode of Payment</th>
-                    <th class="col-amt">Amount (Rs.)</th>
+                    <th class="col-sr">SR. NO.</th>
+                    <th>PARTICULARS</th>
+                    <th>MODE OF PAYMENT</th>
+                    <th class="col-amt">AMOUNT (RS.)</th>
                   </tr>
                 </thead>
                 <tbody>

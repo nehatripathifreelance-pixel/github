@@ -141,28 +141,33 @@ export const Parents: React.FC = () => {
 
   const fetchParents = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from('students')
-      .select('id, name, roll_no, father_name, father_occupation, mother_name, mother_occupation, parent_phone, parent_email, address')
-      .order('name');
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, name, roll_no, father_name, father_occupation, mother_name, mother_occupation, parent_phone, parent_email, residential_address')
+        .order('name');
 
-    if (error) {
-      console.error('Error fetching parents:', error);
-    } else if (data) {
-      setParents(data.map(s => ({
-        id: s.id,
-        studentName: s.name,
-        studentRoll: s.roll_no,
-        fatherName: s.father_name || 'N/A',
-        fatherOccupation: s.father_occupation || 'N/A',
-        motherName: s.mother_name || 'N/A',
-        motherOccupation: s.mother_occupation || 'N/A',
-        phone: s.parent_phone || 'N/A',
-        email: s.parent_email || 'N/A',
-        address: s.address || 'N/A'
-      })));
+      if (error) {
+        console.error('Error fetching parents:', error);
+      } else if (data) {
+        setParents(data.map(s => ({
+          id: s.id,
+          studentName: s.name,
+          studentRoll: s.roll_no,
+          fatherName: s.father_name || 'N/A',
+          fatherOccupation: s.father_occupation || 'N/A',
+          motherName: s.mother_name || 'N/A',
+          motherOccupation: s.mother_occupation || 'N/A',
+          phone: s.parent_phone || 'N/A',
+          email: s.parent_email || 'N/A',
+          address: s.residential_address || 'N/A'
+        })));
+      }
+    } catch (error) {
+      console.error('Unexpected error in fetchParents:', error);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const filteredParents = parents.filter(p => 
@@ -317,6 +322,13 @@ export const Parents: React.FC = () => {
               </div>
             </motion.div>
           ))}
+          {filteredParents.length === 0 && (
+            <div className="col-span-full py-20 text-center bg-white rounded-[32px] border border-dashed border-slate-200">
+              <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-slate-800">No Parents Found</h3>
+              <p className="text-slate-500 text-sm">No parent records match your current search criteria.</p>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -27,6 +27,8 @@ import {
   Save,
   Truck,
   Building2,
+  Printer,
+  Share2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, safeLocalStorageSet } from '../../lib/utils';
@@ -89,11 +91,28 @@ export const Students: React.FC = () => {
   const [availableColumns, setAvailableColumns] = useState<string[]>([]);
   const [view, setView] = useState<'list' | 'register'>('list');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState({
+    branch: '',
+    batch: '',
+    year: '',
+    status: ''
+  });
+  const [showFilters, setShowFilters] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
+  const [newlySavedStudent, setNewlySavedStudent] = useState<Student | null>(null);
   const [dbStatus, setDbStatus] = useState<{ connected: boolean; message?: string; details?: string }>({ connected: true });
+  const [settings, setSettings] = useState<any>({
+    collegeName: 'Sun Group of Institutions',
+    foundationName: 'Sri Kailashnath Foundation®',
+    address: 'B-10, Industrial Market, Sakinaka, Mumbai',
+    logo: '',
+    website: '',
+    phone: '',
+    email: ''
+  });
   const [academicSettings, setAcademicSettings] = useState<any>({
     castes: ['General', 'OBC', 'SC', 'ST', 'EWS'],
     religions: ['Hinduism', 'Islam', 'Christianity', 'Sikhism', 'Buddhism', 'Jainism'],
@@ -119,6 +138,7 @@ export const Students: React.FC = () => {
       const result = await testSupabaseConnection();
       setDbStatus(result);
       await fetchAcademicSettings();
+      await fetchGeneralSettings();
       const currentCourses = await fetchCourses();
       await fetchStudents(currentCourses);
     };
@@ -130,6 +150,11 @@ export const Students: React.FC = () => {
     if (data && data.value) {
       setAcademicSettings(data.value);
     }
+  };
+
+  const fetchGeneralSettings = async () => {
+    const { data } = await supabase.from('app_settings').select('value').eq('key', 'general').single();
+    if (data?.value) setSettings(data.value);
   };
 
   const fetchCourses = async () => {
@@ -241,6 +266,122 @@ export const Students: React.FC = () => {
     if (error) console.error('Error deleting student from Supabase:', error);
   };
 
+  const printAdmissionForm = (student: Student) => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      const now = new Date();
+      const printDateTime = `${now.toLocaleDateString()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Admission Confirmation - ${student.name}</title>
+            <style>
+              @page { size: A4 portrait; margin: 15mm; }
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; color: #333; }
+              .header { text-align: center; border-bottom: 2px solid #ef4444; padding-bottom: 20px; margin-bottom: 30px; position: relative; }
+              .logo { position: absolute; left: 0; top: 0; width: 80px; height: 80px; object-fit: contain; }
+              .foundation { font-size: 14px; font-weight: bold; margin: 0; color: #666; }
+              .college { font-size: 28px; font-weight: 900; margin: 5px 0; color: #ef4444; text-transform: uppercase; }
+              .details { font-size: 12px; color: #666; margin: 2px 0; }
+              
+              .title { text-align: center; font-size: 22px; font-weight: bold; text-decoration: underline; margin: 30px 0; text-transform: uppercase; }
+              
+              .info-section { margin-bottom: 30px; }
+              .section-title { background: #f8fafc; padding: 8px 15px; border-left: 4px solid #ef4444; font-weight: bold; font-size: 14px; margin-bottom: 15px; text-transform: uppercase; }
+              
+              .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 15px; }
+              .item { border-bottom: 1px dotted #ccc; padding: 5px 0; display: flex; align-items: flex-end; }
+              .label { font-weight: bold; font-size: 12px; color: #4b5563; min-width: 140px; }
+              .value { font-size: 13px; color: #000; font-weight: 600; }
+
+              .photo-box { position: absolute; right: 0; top: 0; width: 120px; height: 140px; border: 1px solid #ccc; display: flex; items-center; justify-content: center; font-size: 10px; color: #999; }
+              .photo-img { width: 100%; height: 100%; object-fit: cover; }
+              
+              .declaration { font-size: 11px; line-height: 1.6; margin-top: 40px; padding: 15px; background: #f9fafb; border: 1px solid #e2e8f0; border-radius: 8px; }
+              
+              .footer { margin-top: 80px; display: flex; justify-content: space-between; padding: 0 40px; }
+              .sig { text-align: center; border-top: 1.5px solid #000; padding-top: 8px; min-width: 180px; font-weight: bold; font-size: 13px; }
+              
+              .timestamp { position: fixed; bottom: 10px; right: 20px; font-size: 10px; color: #94a3b8; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              ${settings.logo ? `<img src="${settings.logo}" class="logo" referrerPolicy="no-referrer" />` : ''}
+              <p class="foundation">${settings.foundationName || 'Sri Kailashnath Foundation®'}</p>
+              <h1 class="college">${settings.collegeName || 'SUN GROUP OF INSTITUTIONS'}</h1>
+              <p class="details">${settings.address || 'Mumbai, Maharashtra'}</p>
+              <p class="details">Contact: ${settings.phone || 'N/A'} | Email: ${settings.email || 'N/A'}</p>
+              <div class="photo-box">
+                ${student.photoUrl ? `<img src="${student.photoUrl}" class="photo-img" />` : 'Affix Recent Passport Size Photograph'}
+              </div>
+            </div>
+
+            <div class="title">Admission Confirmation Form</div>
+
+            <div class="info-section">
+              <div class="section-title">Academic Details</div>
+              <div class="grid">
+                <div class="item"><span class="label">Admission ID:</span> <span class="value">${student.id}</span></div>
+                <div class="item"><span class="label">Roll Number:</span> <span class="value">${student.rollNumber || 'TBD'}</span></div>
+                <div class="item"><span class="label">Course Name:</span> <span class="value">${student.courseName}</span></div>
+                <div class="item"><span class="label">Branch:</span> <span class="value">${student.branch}</span></div>
+                <div class="item"><span class="label">Academic Session:</span> <span class="value">${student.session}</span></div>
+                <div class="item"><span class="label">Year / Semester:</span> <span class="value">${student.year} / ${student.semester}</span></div>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <div class="section-title">Personal Details</div>
+              <div class="grid">
+                <div class="item"><span class="label">Candidate Name:</span> <span class="value">${student.name}</span></div>
+                <div class="item"><span class="label">Contact Number:</span> <span class="value">${student.phone}</span></div>
+                <div class="item"><span class="label">Email Address:</span> <span class="value">${student.email}</span></div>
+                <div class="item"><span class="label">Blood Group:</span> <span class="value">${student.bloodGroup || 'N/A'}</span></div>
+                <div class="item"><span class="label">Category / Caste:</span> <span class="value">${student.category} / ${student.caste || 'N/A'}</span></div>
+                <div class="item"><span class="label">Religion:</span> <span class="value">${student.religion || 'N/A'}</span></div>
+              </div>
+            </div>
+
+            <div class="info-section">
+              <div class="section-title">Family Details</div>
+              <div class="grid">
+                <div class="item"><span class="label">Father's Name:</span> <span class="value">${student.fatherName}</span></div>
+                <div class="item"><span class="label">Mother's Name:</span> <span class="value">${student.motherName}</span></div>
+                <div class="item"><span class="label">Emergency Contact:</span> <span class="value">${student.emergencyPhone}</span></div>
+                <div class="item"><span class="label">Parent Phone:</span> <span class="value">${student.parentPhone}</span></div>
+              </div>
+            </div>
+
+            <div class="declaration">
+              <strong>Declaration:</strong> I hereby declare that all the information provided above is true to the best of my knowledge. I agree to abide by the rules and regulations of the institution. My admission is subject to verification of original documents.
+            </div>
+
+            <div class="footer">
+              <div class="sig">Candidate / Parent Signature</div>
+              <div class="sig">Admission Officer / Principal</div>
+            </div>
+
+            <div class="timestamp">Generated on: ${printDateTime}</div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 500);
+    }
+  };
+
+  const shareAdmissionConfirmation = (student: Student) => {
+    const message = `*Admission Confirmation - ${settings.collegeName}*\n\nDear ${student.name},\nCongratulations! Your registration is complete.\n\nStudent ID: ${student.id}\nCourse: ${student.courseName}\nBranch: ${student.branch}\n\nPlease visit the college office with your original documents for verification.\n\nRegards,\nAdmission Team`;
+    const waUrl = `https://wa.me/${(student.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+  };
+
   const INITIAL_FORM_STATE = {
     title: 'Mr.',
     firstName: '',
@@ -285,6 +426,8 @@ export const Students: React.FC = () => {
     studentDocsUrl: '',
     parentDocsUrl: '',
     signatureUrl: '',
+    loginId: '',
+    loginPassword: '12345',
   };
 
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
@@ -295,7 +438,9 @@ export const Students: React.FC = () => {
     if (view === 'register') {
       const year = new Date().getFullYear();
       const random = Math.floor(1000 + Math.random() * 9000);
-      setGeneratedId(`STU${year}${random}`);
+      const studentId = `STU${year}${random}`;
+      setGeneratedId(studentId);
+      setFormData(prev => ({ ...prev, loginId: studentId }));
     }
   }, [view]);
 
@@ -309,7 +454,7 @@ export const Students: React.FC = () => {
     setIsSubmitting(true);
     
     const studentData: any = {
-      id: editingStudent?.id || generatedId,
+      id: formData.loginId || editingStudent?.id || generatedId,
       roll_no: formData.rollNumber,
       title: formData.title,
       first_name: formData.firstName,
@@ -365,6 +510,17 @@ export const Students: React.FC = () => {
     let result;
     if (editingStudent) {
       result = await updateStudentInSupabase(studentData);
+      
+      if (result.success) {
+        // Update credentials if they exist or create if not
+        await supabase.from('user_credentials').upsert({
+          id: studentData.id,
+          password: formData.loginPassword,
+          role: 'STUDENT',
+          name: studentData.name,
+          email: studentData.email
+        });
+      }
     } else {
       result = await addStudentToSupabase(studentData);
       
@@ -373,7 +529,7 @@ export const Students: React.FC = () => {
         // Use student ID as the unique identifier for credentials
         await supabase.from('user_credentials').upsert({
           id: studentData.id,
-          password: '12345',
+          password: formData.loginPassword,
           role: 'STUDENT',
           name: studentData.name,
           email: studentData.email
@@ -409,13 +565,30 @@ export const Students: React.FC = () => {
 
     await fetchStudents();
     setIsSubmitting(false);
+    
+    // Create a student object for the success actions
+    const savedStudent: Student = {
+      ...formData,
+      id: studentData.id,
+      name: studentData.name,
+      courseName: courses.find(c => c.id === formData.course)?.name || '',
+      status: 'Active'
+    };
+    
+    setNewlySavedStudent(savedStudent);
     setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setView('list');
-      setEditingStudent(null);
-      setFormData(INITIAL_FORM_STATE);
-    }, 2000);
+    
+    // If it was an edit, we might want to just go back to list, 
+    // but for New (Admission), we want to show the print option.
+    if (editingStudent) {
+      setTimeout(() => {
+        setShowSuccess(false);
+        setView('list');
+        setEditingStudent(null);
+        setFormData(INITIAL_FORM_STATE);
+        setNewlySavedStudent(null);
+      }, 2000);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -425,65 +598,128 @@ export const Students: React.FC = () => {
     }
   };
 
-  const handleEdit = (student: Student) => {
+  const handleEdit = async (student: Student) => {
     setEditingStudent(student);
     setFormData({
-      title: student.title || 'Mr.',
-      firstName: student.firstName || '',
-      middleName: student.middleName || '',
-      surname: student.surname || '',
-      rollNumber: student.rollNumber || '',
-      course: student.courseId || '',
-      branch: student.branch || '',
-      batch: student.batch || '',
-      year: student.year || '',
-      semester: student.semester || '',
-      session: student.session || '',
-      phone: student.phone || '',
-      email: student.email || '',
-      address: student.address || '',
-      state: student.state || '',
-      pincode: student.pincode || '',
-      permanentAddress: student.permanentAddress || '',
-      permanentState: student.permanentState || '',
-      permanentPincode: student.permanentPincode || '',
-      transportMode: student.transportMode || 'Private/Self',
-      vehicleNumber: student.vehicleNumber || '',
-      routeName: student.routeName || '',
-      isHosteller: student.isHosteller || false,
-      hostelName: student.hostelName || '',
-      roomNumber: student.roomNumber || '',
-      bloodGroup: student.bloodGroup || '',
-      religion: student.religion || '',
-      caste: student.caste || '',
-      category: student.category || '',
-      fatherName: student.fatherName || '',
-      fatherOccupation: student.fatherOccupation || '',
-      motherName: student.motherName || '',
-      motherOccupation: student.motherOccupation || '',
-      parentPhone: student.parentPhone || '',
-      parentEmail: student.parentEmail || '',
-      emergencyName: student.emergencyName || '',
-      emergencyAddress: student.emergencyAddress || '',
-      emergencyPhone: student.emergencyPhone || '',
-      allergy: student.allergy || '',
-      photoUrl: student.photoUrl || '',
-      studentDocsUrl: student.studentDocsUrl || '',
-      parentDocsUrl: student.parentDocsUrl || '',
-      signatureUrl: student.signatureUrl || '',
+      ...student as any,
+      course: student.courseId,
+      loginId: student.id,
+      loginPassword: '12345'
     });
+
+    // Fetch existing password if any
+    const { data: creds } = await supabase.from('user_credentials').select('password').eq('id', student.id).single();
+    if (creds) {
+      setFormData(prev => ({ ...prev, loginPassword: creds.password }));
+    }
+
     setGeneratedId(student.id);
     setView('register');
   };
 
+  const filteredStudents = students.filter(s => {
+    const matchesSearch = (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (s.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (s.rollNumber && s.rollNumber.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesBranch = !filterType.branch || s.branch === filterType.branch;
+    const matchesBatch = !filterType.batch || s.batch === filterType.batch;
+    const matchesYear = !filterType.year || s.year === filterType.year;
+    const matchesStatus = !filterType.status || s.status === filterType.status;
+
+    return matchesSearch && matchesBranch && matchesBatch && matchesYear && matchesStatus;
+  });
+
   const handleExportPDF = () => {
-    const headers = ['ID', 'Name', 'Email', 'Phone', 'Branch', 'Year', 'Status'];
-    const data = students.map(s => [s.id, s.name, s.email, s.phone, s.branch, s.year, s.status]);
+    const headers = ['ID', 'Name', 'Email', 'Phone', 'Course', 'Branch', 'Year', 'Status'];
+    const data = filteredStudents.map(s => [
+      s.id, 
+      s.name, 
+      s.email, 
+      s.phone, 
+      s.courseName || '-', 
+      s.branch, 
+      s.year, 
+      s.status
+    ]);
     exportToPDF('Student List', headers, data, 'Student_List');
   };
 
   const handleExportExcel = () => {
-    exportToExcel(students, 'Student_List');
+    // Flatten data for excel
+    const excelData = filteredStudents.map(s => ({
+      'ID': s.id,
+      'Name': s.name,
+      'Email': s.email,
+      'Phone': s.phone,
+      'Course': s.courseName || '-',
+      'Branch': s.branch,
+      'Batch': s.batch,
+      'Year': s.year,
+      'Semester': s.semester,
+      'Status': s.status
+    }));
+    exportToExcel(excelData, 'Student_List');
+  };
+
+  const handlePrintList = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const content = `
+      <html>
+        <head>
+          <title>Student List - ${settings.collegeName}</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; }
+            h1 { color: #ef4444; margin-bottom: 5px; }
+            h2 { color: #64748b; font-size: 14px; margin-top: 0; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; font-size: 12px; }
+            th { background-color: #f8fafc; color: #1e293b; }
+            tr:nth-child(even) { background-color: #f9fafb; }
+            .status-active { color: #15803d; font-weight: bold; }
+            .status-inactive { color: #b91c1c; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <h1>${settings.collegeName}</h1>
+          <h2>Student List - Generated on ${new Date().toLocaleDateString()}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Course / Branch</th>
+                <th>Year</th>
+                <th>Contact</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredStudents.map(s => `
+                <tr>
+                  <td>${s.id}</td>
+                  <td>${s.name}</td>
+                  <td>${s.courseName || s.branch}</td>
+                  <td>Year ${s.year}</td>
+                  <td>${s.phone}</td>
+                  <td><span class="status-${s.status.toLowerCase()}">${s.status}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
   };
 
   const handleViewDocument = (dataUrl: string) => {
@@ -612,14 +848,123 @@ export const Students: React.FC = () => {
               />
             </div>
             <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-3 bg-background text-slate-600 rounded-xl text-sm font-bold hover:bg-primary/5 transition-all">
-                <Filter className="w-4 h-4" />
-                Filters
-              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all",
+                    showFilters || Object.values(filterType).some(v => v !== '') 
+                      ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                      : "bg-background text-slate-600 hover:bg-primary/5"
+                  )}
+                >
+                  <Filter className="w-4 h-4" />
+                  Filters
+                  {Object.values(filterType).some(v => v !== '') && (
+                    <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  )}
+                </button>
+
+                {/* Filters Dropdown */}
+                <AnimatePresence>
+                  {showFilters && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-primary/10 p-6 z-50 space-y-4"
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h4 className="font-bold text-primary">Advanced Filters</h4>
+                        <button 
+                          onClick={() => {
+                            setFilterType({ branch: '', batch: '', year: '', status: '' });
+                            setShowFilters(false);
+                          }}
+                          className="text-xs text-rose-500 font-bold hover:underline"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Branch</label>
+                          <select 
+                            value={filterType.branch}
+                            onChange={(e) => setFilterType(prev => ({ ...prev, branch: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-50 border-none rounded-lg text-xs font-bold outline-none ring-1 ring-slate-200 focus:ring-primary/20"
+                          >
+                            <option value="">All Branches</option>
+                            {academicSettings.branches.map((b: string) => <option key={b} value={b}>{b}</option>)}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Batch</label>
+                          <select 
+                            value={filterType.batch}
+                            onChange={(e) => setFilterType(prev => ({ ...prev, batch: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-50 border-none rounded-lg text-xs font-bold outline-none ring-1 ring-slate-200 focus:ring-primary/20"
+                          >
+                            <option value="">All Batches</option>
+                            {academicSettings.batches.map((b: string) => <option key={b} value={b}>{b}</option>)}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Year</label>
+                          <select 
+                            value={filterType.year}
+                            onChange={(e) => setFilterType(prev => ({ ...prev, year: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-50 border-none rounded-lg text-xs font-bold outline-none ring-1 ring-slate-200 focus:ring-primary/20"
+                          >
+                            <option value="">All Years</option>
+                            <option value="1">1st Year</option>
+                            <option value="2">2nd Year</option>
+                            <option value="3">3rd Year</option>
+                            <option value="4">4th Year</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Status</label>
+                          <select 
+                            value={filterType.status}
+                            onChange={(e) => setFilterType(prev => ({ ...prev, status: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-50 border-none rounded-lg text-xs font-bold outline-none ring-1 ring-slate-200 focus:ring-primary/20"
+                          >
+                            <option value="">All Statuses</option>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => setShowFilters(false)}
+                        className="w-full py-2 bg-primary text-white rounded-lg text-xs font-bold shadow-lg shadow-primary/20"
+                      >
+                        Apply Filters
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
               <div className="flex items-center gap-2">
+                <button 
+                  onClick={handlePrintList}
+                  className="flex items-center gap-2 px-4 py-3 bg-background text-slate-600 rounded-xl text-sm font-bold hover:bg-primary/5 transition-all"
+                  title="Print Current List"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print
+                </button>
                 <button 
                   onClick={handleExportPDF}
                   className="flex items-center gap-2 px-4 py-3 bg-background text-slate-600 rounded-xl text-sm font-bold hover:bg-primary/5 transition-all"
+                  title="Download as PDF"
                 >
                   <FileText className="w-4 h-4" />
                   PDF
@@ -627,6 +972,7 @@ export const Students: React.FC = () => {
                 <button 
                   onClick={handleExportExcel}
                   className="flex items-center gap-2 px-4 py-3 bg-background text-slate-600 rounded-xl text-sm font-bold hover:bg-primary/5 transition-all"
+                  title="Download as Excel"
                 >
                   <Download className="w-4 h-4" />
                   Excel
@@ -651,11 +997,7 @@ export const Students: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {students.filter(s => 
-                    (s.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    (s.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    (s.rollNumber && s.rollNumber.toLowerCase().includes(searchQuery.toLowerCase()))
-                  ).map((student) => (
+                  {filteredStudents.map((student) => (
                     <tr key={student.id} className="hover:bg-primary/5 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -703,6 +1045,13 @@ export const Students: React.FC = () => {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button 
+                            onClick={() => printAdmissionForm(student)}
+                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                            title="Print Admission Form"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button 
                             onClick={() => setViewingStudent(student)}
                             className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
                             title="View Details"
@@ -739,6 +1088,51 @@ export const Students: React.FC = () => {
           className="bg-white rounded-3xl border border-primary/10 shadow-xl overflow-hidden"
         >
           <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-12">
+            {/* Login Credentials Section */}
+            <div className="space-y-8 bg-indigo-50/50 p-8 rounded-[32px] border border-indigo-100/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-indigo-900">Login Credentials</h3>
+                  <p className="text-sm text-indigo-700/70 font-medium">Manage student authentication access</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Student ID / Login Username</label>
+                  <div className="relative">
+                    <Users className="w-4 h-4 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input 
+                      type="text" 
+                      name="loginId"
+                      required
+                      value={formData.loginId}
+                      onChange={handleInputChange}
+                      disabled={!!editingStudent}
+                      className="w-full pl-11 pr-4 py-3 bg-white border-none rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Login Password</label>
+                  <div className="relative">
+                    <AlertCircle className="w-4 h-4 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input 
+                      type="text" 
+                      name="loginPassword"
+                      required
+                      value={formData.loginPassword}
+                      onChange={handleInputChange}
+                      className="w-full pl-11 pr-4 py-3 bg-white border-none rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Section: Personal Information */}
             <div className="space-y-8">
               <div className="flex items-center gap-3 pb-4 border-b border-primary/10">
@@ -1626,7 +2020,60 @@ export const Students: React.FC = () => {
 
       {/* Success Notification */}
       <AnimatePresence>
-        {showSuccess && (
+        {showSuccess && newlySavedStudent && (
+          <div className="fixed inset-0 bg-primary/20 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white rounded-[32px] shadow-2xl p-10 max-w-lg w-full text-center space-y-6"
+            >
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mx-auto">
+                <CheckCircle2 className="w-10 h-10" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-900">Registration Successful!</h3>
+                <p className="text-slate-500 mt-2 font-medium">Student record for <span className="text-primary font-bold">{newlySavedStudent.name}</span> has been created.</p>
+                <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest font-bold">Admission ID: {newlySavedStudent.id}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-4">
+                <button 
+                  onClick={() => printAdmissionForm(newlySavedStudent)}
+                  className="flex items-center justify-center gap-2 px-6 py-4 bg-primary/10 text-primary rounded-2xl font-bold hover:bg-primary/20 transition-all"
+                >
+                  <Printer className="w-5 h-5" />
+                  Print Form
+                </button>
+                <button 
+                  onClick={() => shareAdmissionConfirmation(newlySavedStudent)}
+                  className="flex items-center justify-center gap-2 px-6 py-4 bg-green-50 text-green-600 rounded-2xl font-bold hover:bg-green-100 transition-all"
+                >
+                  <Share2 className="w-5 h-5" />
+                  Share PDF
+                </button>
+              </div>
+
+              <button 
+                onClick={() => {
+                  setShowSuccess(false);
+                  setView('list');
+                  setEditingStudent(null);
+                  setFormData(INITIAL_FORM_STATE);
+                  setNewlySavedStudent(null);
+                }}
+                className="w-full py-4 text-slate-500 font-bold hover:text-primary transition-all underline underline-offset-4"
+              >
+                Go to Student List
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Legacy simple success message for edits */}
+      <AnimatePresence>
+        {showSuccess && !newlySavedStudent && (
           <motion.div 
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1637,8 +2084,8 @@ export const Students: React.FC = () => {
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-bold">Registration Successful!</p>
-              <p className="text-xs text-white/80">Student record has been created.</p>
+              <p className="font-bold">Execution Successful!</p>
+              <p className="text-xs text-white/80">Operation completed successfully.</p>
             </div>
           </motion.div>
         )}
@@ -1805,22 +2252,36 @@ export const Students: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-8 bg-slate-50 flex items-center justify-end gap-3 border-t border-slate-100">
+              <div className="p-8 bg-slate-50 flex items-center justify-end flex-wrap gap-3 border-t border-slate-100">
                 <button 
-                  onClick={() => {
-                    handleEdit(viewingStudent);
-                    setViewingStudent(null);
-                  }}
+                  onClick={() => printAdmissionForm(viewingStudent)}
                   className="px-6 py-3 bg-white border border-primary/10 text-primary rounded-2xl font-bold hover:bg-primary/5 transition-all shadow-sm flex items-center gap-2"
                 >
-                  <Edit2 className="w-4 h-4" /> Edit Profile
+                  <Printer className="w-4 h-4" /> Print Form
                 </button>
                 <button 
-                  onClick={() => setViewingStudent(null)}
-                  className="px-8 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                  onClick={() => shareAdmissionConfirmation(viewingStudent)}
+                  className="px-6 py-3 bg-green-50 text-green-600 rounded-2xl font-bold hover:bg-green-100 transition-all shadow-sm flex items-center gap-2"
                 >
-                  Close
+                  <Share2 className="w-4 h-4" /> Share
                 </button>
+                <div className="w-full sm:w-auto flex gap-3">
+                  <button 
+                    onClick={() => {
+                      handleEdit(viewingStudent);
+                      setViewingStudent(null);
+                    }}
+                    className="flex-1 sm:flex-none px-6 py-3 bg-white border border-primary/10 text-primary rounded-2xl font-bold hover:bg-primary/5 transition-all shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <Edit2 className="w-4 h-4" /> Edit
+                  </button>
+                  <button 
+                    onClick={() => setViewingStudent(null)}
+                    className="flex-1 sm:flex-none px-8 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

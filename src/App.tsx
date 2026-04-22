@@ -22,6 +22,7 @@ import { Results } from './modules/Results/Results';
 import { Income } from './modules/Income/Income';
 import { Expenses } from './modules/Expenses/Expenses';
 import { Profile } from './modules/Profile/Profile';
+import { Communication } from './modules/Communication/Communication';
 import { StudentPanel } from './modules/Students/StudentPanel';
 import { FacultyPanel } from './modules/Faculty/FacultyPanel';
 
@@ -186,6 +187,14 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['PARENT']}>
                 <ParentPanel />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/communication" 
+            element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL']}>
+                <Communication />
               </ProtectedRoute>
             } 
           />
