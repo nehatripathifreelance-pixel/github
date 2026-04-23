@@ -28,7 +28,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
 
-import { NoticeTicker } from '../../components/NoticeTicker';
+// import { NoticeTicker } from '../../components/NoticeTicker';
 
 interface StudentData {
   id: string;
@@ -74,7 +74,7 @@ export const StudentPanel: React.FC = () => {
           schema: 'public', 
           table: 'notices' 
         }, (payload) => {
-          if (payload.new.target_audience === 'All' || payload.new.target_audience === 'Students') {
+          if (payload.new.audience === 'All' || payload.new.audience === 'Students') {
             setNotices(prev => [payload.new, ...prev]);
             playNotificationSound();
           }
@@ -96,7 +96,7 @@ export const StudentPanel: React.FC = () => {
     const { data } = await supabase
       .from('notices')
       .select('*')
-      .or('target_audience.eq.All,target_audience.eq.Students')
+      .or('audience.eq.All,audience.eq.Students')
       .order('created_at', { ascending: false })
       .limit(10);
     if (data) setNotices(data);
@@ -124,9 +124,10 @@ export const StudentPanel: React.FC = () => {
         });
 
         // 2. Fetch all related data in parallel
+        const courseId = student.course_id;
         const [examsRes, resultsRes, feesRes, coursesRes, timetableRes, syllabusRes, studyLogsRes] = await Promise.all([
-          supabase.from('exams').select('*, papers:exam_papers(*)').eq('course', student.courses?.name).order('date', { ascending: true }),
-          supabase.from('results').select('*, exams(*)').eq('student_id', student.id).eq('is_published', true).order('created_at', { ascending: false }),
+          supabase.from('exams').select('*, papers(*)').eq('course_id', courseId).order('date', { ascending: true }),
+          supabase.from('results').select('*, exams(*)').eq('student_id', student.id).eq('status', 'published').order('created_at', { ascending: false }),
           supabase.from('fees').select('*').eq('student_id', student.id).order('due_date', { ascending: true }),
           supabase.from('courses').select('*'),
           supabase.from('timetable').select('*').eq('course_id', student.course_id),
@@ -177,15 +178,12 @@ export const StudentPanel: React.FC = () => {
     if (!selectedExam || !studentData) return;
 
     const resultData = {
-      id: `RES${Math.floor(1000 + Math.random() * 9000)}`,
       student_id: studentData.id,
-      student_name: studentData.name,
       exam_id: selectedExam.id,
-      marks: 0,
+      marks_obtained: 0,
       total_marks: selectedExam.papers?.total_marks || 100,
-      status: 'PENDING',
-      answers: { submissionDate: new Date().toISOString() },
-      is_published: false
+      status: 'draft',
+      evaluation_data: { submissionDate: new Date().toISOString() }
     };
 
     const { error } = await supabase.from('results').insert(resultData);
@@ -211,7 +209,8 @@ export const StudentPanel: React.FC = () => {
         status: 'PAID',
         payment_mode: 'Online',
         payment_method: 'Card/UPI',
-        transaction_id: `TXN${Math.floor(100000 + Math.random() * 900000)}`
+        transaction_id: `TXN${Math.floor(100000 + Math.random() * 900000)}`,
+        date: new Date().toISOString().split('T')[0]
       })
       .eq('id', fee.id);
 
@@ -229,6 +228,20 @@ export const StudentPanel: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!studentData && !isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
+        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-600">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-black text-slate-800">Student Profile Not Found</h2>
+          <p className="text-slate-500">We couldn't locate your student profile in the system. Please contact the administrator.</p>
+        </div>
       </div>
     );
   }
@@ -304,7 +317,7 @@ export const StudentPanel: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Live Notice Ticker */}
-      <NoticeTicker audience="Students" />
+      {/* <NoticeTicker audience="Students" /> */}
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -400,7 +413,7 @@ export const StudentPanel: React.FC = () => {
                   </div>
                   <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Latest Score</p>
                   <p className="text-3xl font-black text-slate-900">
-                    {results[0] ? `${results[0].marks}/${results[0].total_marks}` : 'N/A'}
+                    {results[0] ? `${results[0].marks_obtained}/${results[0].total_marks}` : 'N/A'}
                   </p>
                 </div>
                 <div className="bg-white p-6 rounded-[32px] border border-primary/10 shadow-sm">
@@ -587,14 +600,14 @@ export const StudentPanel: React.FC = () => {
                       </td>
                       <td className="px-8 py-5">
                         <div className="flex flex-col">
-                          <span className="text-sm font-black text-slate-900">{res.marks}/{res.total_marks}</span>
+                          <span className="text-sm font-black text-slate-900">{res.marks_obtained}/{res.total_marks}</span>
                           <div className="w-24 h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
                             <div 
                               className={cn(
                                 "h-full rounded-full",
-                                res.status === 'PASSED' ? "bg-emerald-500" : "bg-rose-500"
+                                res.marks_obtained >= (res.total_marks * 0.4) ? "bg-emerald-500" : "bg-rose-500"
                               )}
-                              style={{ width: `${(res.marks/res.total_marks) * 100}%` }}
+                              style={{ width: `${(res.marks_obtained/res.total_marks) * 100}%` }}
                             />
                           </div>
                         </div>
@@ -602,9 +615,9 @@ export const StudentPanel: React.FC = () => {
                       <td className="px-8 py-5">
                         <span className={cn(
                           "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center w-fit gap-1.5",
-                          res.status === 'PASSED' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                          res.marks_obtained >= (res.total_marks * 0.4) ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
                         )}>
-                          {res.status}
+                          {res.status === 'published' ? (res.marks_obtained >= (res.total_marks * 0.4) ? 'PASSED' : 'FAILED') : 'EVALUATING'}
                         </span>
                       </td>
                       <td className="px-8 py-5 text-right">

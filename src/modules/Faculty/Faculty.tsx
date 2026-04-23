@@ -19,7 +19,8 @@ import {
   Briefcase,
   Edit2,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, safeLocalStorageSet } from '../../lib/utils';
@@ -307,6 +308,7 @@ export const Faculty: React.FC = () => {
     signatureUrl: '',
     loginId: '',
     loginPassword: '12345',
+    role: 'FACULTY' as 'FACULTY' | 'STAFF',
   };
 
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
@@ -346,7 +348,7 @@ export const Faculty: React.FC = () => {
       await supabase.from('user_credentials').upsert({
         id: formData.loginId || editingStaff?.id || generatedId,
         password: formData.loginPassword,
-        role: 'FACULTY',
+        role: formData.role,
         name: `${formData.firstName} ${formData.surname}`,
         email: formData.email
       });
@@ -429,10 +431,13 @@ export const Faculty: React.FC = () => {
         loginPassword: '12345' // Default
       });
 
-      // Fetch existing password
-      const { data: creds } = await supabase.from('user_credentials').select('password').eq('id', data.id).single();
+      const { data: creds } = await supabase.from('user_credentials').select('password, role').eq('id', data.id).single();
       if (creds) {
-        setFormData(prev => ({ ...prev, loginPassword: creds.password }));
+        setFormData(prev => ({ 
+          ...prev, 
+          loginPassword: creds.password,
+          role: (creds.role as 'FACULTY' | 'STAFF') || 'FACULTY'
+        }));
       }
 
       setGeneratedId(data.id);
@@ -634,9 +639,21 @@ export const Faculty: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Employee ID / Login Username</label>
+                  <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Account Type / Role</label>
+                  <select 
+                    name="role"
+                    value={formData.role}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-white border-none rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  >
+                    <option value="FACULTY">Faculty Member</option>
+                    <option value="STAFF">General Staff</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Employee ID / Username</label>
                   <div className="relative">
                     <Users className="w-4 h-4 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2" />
                     <input 

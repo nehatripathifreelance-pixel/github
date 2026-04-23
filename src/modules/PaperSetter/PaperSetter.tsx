@@ -655,111 +655,111 @@ export const PaperSetter: React.FC = () => {
         {/* Left Column: Paper Config */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-              <Settings2 className="w-4 h-4 text-indigo-500" />
-              Paper Configuration
-            </h3>
-            <div className="space-y-3">
+            <h3 className="text-xl font-black text-slate-900 border-b border-indigo-50 pb-2">Paper Configuration</h3>
+            <div className="space-y-4">
               <button 
                 onClick={fixDatabase}
-                className="w-full text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-colors py-1 border border-dashed border-slate-200 rounded flex items-center justify-center gap-2"
+                className="w-full text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-colors py-2 border border-dashed border-slate-200 rounded flex items-center justify-center gap-2"
               >
                 <AlertTriangle className="w-3 h-3" />
                 Troubleshoot Database Schema
               </button>
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Paper Title</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Paper Title</label>
                 <input 
                   type="text" 
                   value={paper.title}
                   onChange={(e) => setPaper({ ...paper, title: e.target.value })}
-                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  placeholder="test"
+                  className="w-full mt-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
               </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Course</label>
-                <select 
-                  value={paper.course}
-                  onChange={(e) => setPaper({ ...paper, course: e.target.value })}
-                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                >
-                  <option value="">Select Course</option>
-                  {courses.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Subject</label>
-                <input 
-                  type="text" 
-                  value={paper.subject}
-                  onChange={(e) => setPaper({ ...paper, subject: e.target.value })}
-                  placeholder="e.g. Mathematics"
-                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Set / Version</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Course</label>
+                  <select 
+                    value={paper.course}
+                    onChange={(e) => setPaper({ ...paper, course: e.target.value })}
+                    className="w-full mt-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="">Select Course</option>
+                    {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subject</label>
+                  <input 
+                    type="text" 
+                    value={paper.subject}
+                    onChange={(e) => setPaper({ ...paper, subject: e.target.value })}
+                    placeholder="test"
+                    className="w-full mt-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Set / Version</label>
                   <input 
                     type="text" 
                     value={paper.set}
                     onChange={(e) => setPaper({ ...paper, set: e.target.value })}
                     placeholder="Set 1"
-                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full mt-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Marks</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Total Marks</label>
                   <input 
                     type="number" 
                     value={paper.totalMarks}
                     onChange={(e) => setPaper({ ...paper, totalMarks: parseInt(e.target.value) })}
-                    className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="75"
+                    className="w-full mt-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-black focus:ring-2 focus:ring-indigo-500 outline-none"
                   />
                 </div>
               </div>
               <div>
-                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Instructions</label>
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Instructions</label>
                  <textarea 
                    value={paper.instructions}
                    onChange={(e) => setPaper({ ...paper, instructions: e.target.value })}
-                   className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-h-[80px]"
+                   placeholder="Your answer should be specific to the questions asked..."
+                   className="w-full mt-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none min-h-[100px] resize-none"
                  />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Duration (Min)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Duration (Min)</label>
                 <input 
                   type="number" 
                   value={paper.duration}
                   onChange={(e) => setPaper({ ...paper, duration: parseInt(e.target.value) })}
-                  className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  placeholder="180"
+                  className="w-full mt-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-black focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
               </div>
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-4">Add Question</h3>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Add Question</h3>
             <div className="grid grid-cols-1 gap-2">
               {[
-                { type: 'MCQ', label: 'Multiple Choice', icon: ListChecks, color: 'text-blue-600', bg: 'bg-blue-50' },
-                { type: 'FILL_BLANKS', label: 'Fill in the Blanks', icon: HelpCircle, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                { type: 'ONE_SENTENCE', label: 'One Sentence', icon: Type, color: 'text-green-600', bg: 'bg-green-50' },
-                { type: 'SHORT_ANSWER', label: 'Short Answer', icon: AlignLeft, color: 'text-amber-600', bg: 'bg-amber-50' },
-                { type: 'LONG_ANSWER', label: 'Long Answer', icon: FileText, color: 'text-red-600', bg: 'bg-red-50' },
-              ].map((btn) => (
+                { type: 'MCQ', icon: ListChecks, label: 'Multiple Choice', color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                { type: 'FILL_BLANKS', icon: AlignLeft, label: 'Fill in the Blanks', color: 'text-blue-600', bg: 'bg-blue-50' },
+                { type: 'ONE_SENTENCE', icon: Type, label: 'One Sentence', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                { type: 'SHORT_ANSWER', icon: AlignLeft, label: 'Short Answer', color: 'text-amber-600', bg: 'bg-amber-50' },
+                { type: 'LONG_ANSWER', icon: FileText, label: 'Long Answer', color: 'text-rose-600', bg: 'bg-rose-50' },
+              ].map((item) => (
                 <button
-                  key={btn.type}
-                  onClick={() => addQuestion(btn.type as QuestionType)}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 group text-left"
+                  key={item.type}
+                  onClick={() => addQuestion(item.type as QuestionType)}
+                  className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-all text-left group border border-transparent hover:border-slate-100"
                 >
-                  <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110", btn.bg)}>
-                    <btn.icon className={cn("w-5 h-5", btn.color)} />
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-all group-hover:scale-110", item.bg)}>
+                    <item.icon className={cn("w-5 h-5", item.color)} />
                   </div>
-                  <span className="text-sm font-semibold text-slate-700">{btn.label}</span>
-                  <Plus className="w-4 h-4 text-slate-300 ml-auto" />
+                  <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900 transition-colors">{item.label}</span>
                 </button>
               ))}
             </div>

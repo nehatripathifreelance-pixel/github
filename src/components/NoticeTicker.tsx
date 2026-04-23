@@ -15,13 +15,13 @@ export const NoticeTicker: React.FC<NoticeTickerProps> = ({ audience }) => {
     fetchLatestNotices();
 
     const channel = supabase
-      .channel('notices_ticker')
+      .channel(`notices_ticker_${audience}_${Math.random().toString(36).substring(7)}`)
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
         table: 'notices' 
       }, (payload) => {
-        if (audience === 'Admin' || payload.new.target_audience === 'All' || payload.new.target_audience === audience) {
+        if (audience === 'Admin' || payload.new.audience === 'All' || payload.new.audience === audience) {
           setNotices(prev => [payload.new, ...prev]);
           setIsVisible(true);
         }
@@ -40,7 +40,7 @@ export const NoticeTicker: React.FC<NoticeTickerProps> = ({ audience }) => {
       .eq('is_template', false);
     
     if (audience !== 'Admin') {
-      query = query.or(`target_audience.eq.All,target_audience.eq.${audience}`);
+      query = query.or(`audience.eq.All,audience.eq.${audience}`);
     }
 
     const { data } = await query

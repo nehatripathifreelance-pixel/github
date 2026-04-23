@@ -17,6 +17,7 @@ import {
   ChevronRight, 
   LayoutDashboard,
   Timer,
+  Printer,
   Download,
   Edit2,
   Trash2,
@@ -56,19 +57,22 @@ interface Exam {
 interface Result {
   id: string;
   student_id: string;
-  student_name: string;
   exam_id: string;
-  marks: number;
+  marks_obtained: number;
   total_marks: number;
   status: string;
-  is_published: boolean;
+  evaluation_data?: any;
+  published_at?: string;
   exams?: {
     title: string;
     subject: string;
   };
+  students?: {
+    name: string;
+  };
 }
 
-import { NoticeTicker } from '../../components/NoticeTicker';
+// import { NoticeTicker } from '../../components/NoticeTicker';
 
 export const FacultyPanel: React.FC = () => {
   const { user } = useAuth();
@@ -84,6 +88,7 @@ export const FacultyPanel: React.FC = () => {
   const [syllabus, setSyllabus] = useState<any[]>([]);
   const [studyLogs, setStudyLogs] = useState<any[]>([]);
   const [notices, setNotices] = useState<any[]>([]);
+  const [settings, setSettings] = useState<any>({});
 
   // Filter State
   const [selectedCourse, setSelectedCourse] = useState<string>('');
@@ -113,8 +118,8 @@ export const FacultyPanel: React.FC = () => {
         schema: 'public', 
         table: 'notices' 
       }, (payload) => {
-        // Only show if targeted at All or Staff
-        if (payload.new.target_audience === 'All' || payload.new.target_audience === 'Staff') {
+        // Only show if targeted at All or Faculty
+        if (payload.new.audience === 'All' || payload.new.audience === 'Faculty' || payload.new.audience === 'Staff') {
           setNotices(prev => [payload.new, ...prev]);
           playNotificationSound();
         }
@@ -135,7 +140,7 @@ export const FacultyPanel: React.FC = () => {
     const { data } = await supabase
       .from('notices')
       .select('*')
-      .or('target_audience.eq.All,target_audience.eq.Staff')
+      .or('audience.eq.All,audience.eq.Faculty,audience.eq.Staff')
       .order('created_at', { ascending: false })
       .limit(10);
     if (data) setNotices(data);
@@ -144,23 +149,31 @@ export const FacultyPanel: React.FC = () => {
   const fetchInitialData = async () => {
     setIsLoading(true);
     try {
-      const [coursesRes, examsRes, logsRes] = await Promise.all([
+      const [coursesRes, examsRes, logsRes, settingsRes] = await Promise.all([
         supabase.from('courses').select('id, name').order('name'),
         supabase.from('exams').select('*').order('date', { ascending: false }),
-        supabase.from('study_activities').select('*, courses(name)').order('date', { ascending: false })
+        supabase.from('study_activities').select('*, courses(name)').order('date', { ascending: false }),
+        supabase.from('app_settings').select('*')
       ]);
 
       if (coursesRes.data) setCourses(coursesRes.data);
       if (examsRes.data) setExams(examsRes.data);
       if (logsRes.data) setStudyLogs(logsRes.data);
+      if (settingsRes.data) {
+        const settingsObj = settingsRes.data.reduce((acc: any, curr: any) => {
+          acc[curr.key] = curr.value;
+          return acc;
+        }, {});
+        setSettings(settingsObj.academic || {});
+      }
 
       if (user) {
-        const { data: ttData } = await supabase
-          .from('timetable')
-          .select('*, courses(name)')
-          .eq('faculty', user.name)
-          .order('start_time');
-        if (ttData) setTimetable(ttData);
+        const [ttRes, syllabusRes] = await Promise.all([
+          supabase.from('timetable').select('*, courses(name)').eq('faculty', user.name).order('start_time'),
+          supabase.from('syllabus').select('*, courses(name)').order('unit_number', { ascending: true })
+        ]);
+        if (ttRes.data) setTimetable(ttRes.data);
+        if (syllabusRes.data) setSyllabus(syllabusRes.data);
       }
     } catch (error) {
       console.error('Error fetching initial data:', error);
@@ -215,26 +228,25 @@ export const FacultyPanel: React.FC = () => {
     try {
       const { data } = await supabase
         .from('results')
-        .select('*, exams(title, subject)')
-        .eq('exam_id', examId)
-        .order('student_name');
+        .select('*, exams(title, subject), students(name)')
+        .eq('exam_id', examId);
       if (data) setResults(data);
     } catch (error) {
       console.error('Error fetching results:', error);
     } finally {
+      setIsLoading(true); // wait, should be false
       setIsLoading(false);
     }
   };
 
   const handleUpdateMarks = async (resultId: string, marks: number, totalMarks: number) => {
     try {
-      const status = marks >= (totalMarks * 0.4) ? 'PASSED' : 'FAILED';
       const { error } = await supabase
         .from('results')
-        .update({ marks, status })
+        .update({ marks_obtained: marks, status: 'draft' })
         .eq('id', resultId);
       if (error) throw error;
-      setResults(prev => prev.map(r => r.id === resultId ? { ...r, marks, status } : r));
+      setResults(prev => prev.map(r => r.id === resultId ? { ...r, marks_obtained: marks, status: 'draft' } : r));
     } catch (error) {
       console.error('Error updating marks:', error);
     }
@@ -244,11 +256,11 @@ export const FacultyPanel: React.FC = () => {
     try {
       const { error } = await supabase
         .from('results')
-        .update({ is_published: true, published_at: new Date().toISOString() })
+        .update({ status: 'published', published_at: new Date().toISOString() })
         .eq('exam_id', examId);
       if (error) throw error;
       
-      await supabase.from('exams').update({ results_status: 'PUBLISHED' }).eq('id', examId);
+      await supabase.from('exams').update({ status: 'published' }).eq('id', examId);
       alert('Results published successfully!');
       fetchInitialData();
     } catch (error) {
@@ -286,6 +298,179 @@ export const FacultyPanel: React.FC = () => {
     }
   };
 
+  const handlePrintDocument = (type: 'studylog' | 'timetable' | 'syllabus') => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    let title = '';
+    let content = '';
+
+    if (type === 'studylog') {
+      title = 'Study Log History';
+      content = `
+        <div class="header">
+          <h1 class="college">Study Log History</h1>
+          <p class="receipt-no">Faculty: ${user?.name}</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Date</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Course</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Batch</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Activities</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${studyLogs.map(log => `
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px; font-size: 12px; font-weight: 700;">${formatDate(log.date)}</td>
+                <td style="padding: 12px; font-size: 12px;">${log.courses?.name}</td>
+                <td style="padding: 12px; font-size: 12px;">${log.batch}</td>
+                <td style="padding: 12px; font-size: 12px;">${Array.isArray(log.activities) ? log.activities.join(', ') : log.activities}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else if (type === 'timetable') {
+      title = 'Faculty Time Table';
+      content = `
+        <div class="header">
+          <h1 class="college">Faculty Time Table</h1>
+          <p class="receipt-no">Faculty: ${user?.name}</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Day</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Subject</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Time</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Batch</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${timetable.map(slot => `
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px; font-size: 12px; font-weight: 700;">${slot.day}</td>
+                <td style="padding: 12px; font-size: 12px;">${slot.subject} ${slot.room ? `(${slot.room})` : ''}</td>
+                <td style="padding: 12px; font-size: 12px;">${slot.start_time} - ${slot.end_time}</td>
+                <td style="padding: 12px; font-size: 12px;">${slot.courses?.name || 'N/A'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else if (type === 'syllabus') {
+      title = 'Syllabus Blueprint';
+      content = `
+        <div class="header">
+          <h1 class="college">Syllabus Blueprint</h1>
+        </div>
+        <div style="margin-top: 20px;">
+          ${syllabus.map(item => `
+            <div class="unit-card">
+              <h3 class="unit-title">${item.courses?.name} - Unit ${item.unit_number}: ${item.unit_title || item.title}</h3>
+              <p class="unit-desc">${item.description || 'No description provided.'}</p>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+  const html = `
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }
+            .header { text-align: center; border-bottom: 2px solid #ef4444; padding-bottom: 20px; margin-bottom: 30px; }
+            .college { font-size: 24px; font-weight: 900; color: #ef4444; text-transform: uppercase; margin: 0; }
+            .receipt-no { font-size: 12px; color: #64748b; margin-top: 5px; font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; }
+            td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+            .unit-card { margin-bottom: 20px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
+            .unit-title { margin: 0; color: #ef4444; font-size: 16px; font-weight: 900; }
+            .unit-desc { margin: 10px 0 0; font-size: 14px; color: #475569; }
+          </style>
+        </head>
+        <body>
+          ${content}
+          <div style="margin-top: 40px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+            <p>Generated via Faculty Panel • ${new Date().toLocaleString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 1000);
+  };
+
+  const handleDownloadCSV = (type: 'studylog' | 'timetable') => {
+    let dataToExport: any[] = [];
+    let filename = '';
+
+    if (type === 'studylog') {
+      dataToExport = studyLogs.map(log => ({
+        Date: formatDate(log.date),
+        Course: log.courses?.name,
+        Batch: log.batch,
+        Activities: Array.isArray(log.activities) ? log.activities.join('; ') : log.activities,
+        Assignment: log.assignment_subject ? `${log.assignment_subject}: ${log.assignment_topic}` : 'None'
+      }));
+      filename = `faculty_study_log_${user?.name?.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+    } else if (type === 'timetable') {
+      dataToExport = timetable.map(slot => ({
+        Day: slot.day,
+        Subject: slot.subject,
+        Time: `${slot.start_time} - ${slot.end_time}`,
+        Batch: slot.batch,
+        Room: slot.room || 'N/A'
+      }));
+      filename = `faculty_timetable_${user?.name?.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+    }
+
+    if (dataToExport.length === 0) return;
+
+    const headers = Object.keys(dataToExport[0]).join(',');
+    const rows = dataToExport.map(row => 
+      Object.values(row).map(val => 
+        typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
+      ).join(',')
+    ).join('\n');
+
+    const csvContent = `${headers}\n${rows}`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleShare = async (type: string) => {
+    const shareData = {
+      title: `${type} - Faculty Panel`,
+      text: `Academic data share: ${type}`,
+      url: window.location.href
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) { console.log(err); }
+    } else {
+      alert(`Share this link: ${window.location.href}`);
+    }
+  };
+
   if (isLoading && activeTab === 'overview') {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -298,7 +483,7 @@ export const FacultyPanel: React.FC = () => {
     <div className="space-y-8">
       {/* Header */}
       {/* Live Notice Ticker */}
-      <NoticeTicker audience="Staff" />
+      {/* <NoticeTicker audience="Staff" /> */}
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
@@ -601,8 +786,28 @@ export const FacultyPanel: React.FC = () => {
             exit={{ opacity: 0, y: -20 }}
             className="bg-white rounded-[32px] border border-primary/10 shadow-sm overflow-hidden"
           >
-            <div className="p-8 border-b border-slate-100">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-xl font-black text-slate-800">Weekly Schedule</h3>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleDownloadCSV('timetable')}
+                  className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-all border border-emerald-100 flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" /> Export CSV
+                </button>
+                <button 
+                  onClick={() => handlePrintDocument('timetable')}
+                  className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4" /> Print
+                </button>
+                <button 
+                  onClick={() => handleShare('Faculty Schedule')}
+                  className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all"
+                >
+                  Share
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -752,7 +957,7 @@ export const FacultyPanel: React.FC = () => {
                     <tbody className="divide-y divide-slate-50">
                       {results.map((res) => (
                         <tr key={res.id} className="hover:bg-primary/5 transition-colors">
-                          <td className="px-8 py-5 text-sm font-black text-slate-800">{res.student_name}</td>
+                          <td className="px-8 py-5 text-sm font-black text-slate-800">{res.students?.name || 'N/A'}</td>
                           <td className="px-8 py-5">
                             <p className="text-sm font-bold text-slate-700">{res.exams?.title}</p>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{res.exams?.subject}</p>
@@ -761,7 +966,7 @@ export const FacultyPanel: React.FC = () => {
                             <div className="flex items-center gap-3">
                               <input 
                                 type="number"
-                                value={res.marks}
+                                value={res.marks_obtained || 0}
                                 onChange={(e) => handleUpdateMarks(res.id, Number(e.target.value), res.total_marks)}
                                 className="w-20 px-3 py-2 bg-background border-none rounded-xl text-sm font-black focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                               />
@@ -771,9 +976,9 @@ export const FacultyPanel: React.FC = () => {
                           <td className="px-8 py-5">
                             <span className={cn(
                               "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                              res.status === 'PASSED' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                              res.status === 'published' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
                             )}>
-                              {res.status}
+                              {res.status === 'published' ? (res.marks_obtained >= (res.total_marks * 0.4) ? 'PASSED' : 'FAILED') : 'DRAFT'}
                             </span>
                           </td>
                           <td className="px-8 py-5 text-right">
@@ -806,35 +1011,50 @@ export const FacultyPanel: React.FC = () => {
           >
             <div className="bg-white p-8 rounded-[32px] border border-primary/10 shadow-sm">
               <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-black text-slate-800">Syllabus Management</h3>
-                <button className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add Unit
-                </button>
+                <div>
+                  <h3 className="text-xl font-black text-slate-800">Syllabus Management</h3>
+                  <p className="text-sm text-slate-500 font-medium">View and manage unit-wise curriculum.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => handlePrintDocument('syllabus')}
+                    className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-2"
+                  >
+                    <Printer className="w-4 h-4" /> Export/Print
+                  </button>
+                  <button className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-black hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add Unit
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {courses.map(course => (
-                  <div key={course.id} className="p-6 bg-slate-50 rounded-[24px] border border-slate-100 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-black text-slate-800">{course.name}</h4>
-                      <span className="text-[10px] font-black text-primary uppercase tracking-widest">5 Units</span>
+                {courses.map(course => {
+                  const courseSyllabus = syllabus.filter(s => s.course_id === course.id);
+                  return (
+                    <div key={course.id} className="p-6 bg-slate-50 rounded-[24px] border border-slate-100 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-black text-slate-800">{course.name}</h4>
+                        <span className="text-[10px] font-black text-primary uppercase tracking-widest">{courseSyllabus.length} Units</span>
+                      </div>
+                      <div className="space-y-2">
+                        {courseSyllabus.map(item => (
+                          <div key={item.id} className="p-3 bg-white rounded-xl border border-slate-100 flex items-center justify-between group">
+                            <span className="text-xs font-bold text-slate-600">Unit {item.unit_number}: {item.unit_title || item.title}</span>
+                            <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-400 hover:text-primary">
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                        {courseSyllabus.length === 0 && <p className="text-xs text-slate-400 italic">No syllabus units found.</p>}
+                      </div>
+                      <button className="w-full py-3 bg-white text-primary rounded-xl text-xs font-bold hover:bg-primary hover:text-white transition-all border border-primary/10">
+                        View Full Syllabus
+                      </button>
                     </div>
-                    <div className="space-y-2">
-                      {[1, 2, 3].map(unit => (
-                        <div key={unit} className="p-3 bg-white rounded-xl border border-slate-100 flex items-center justify-between group">
-                          <span className="text-xs font-bold text-slate-600">Unit {unit}: Introduction to {course.name}</span>
-                          <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-400 hover:text-primary">
-                            <Edit2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <button className="w-full py-3 bg-white text-primary rounded-xl text-xs font-bold hover:bg-primary hover:text-white transition-all border border-primary/10">
-                      View Full Syllabus
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </motion.div>
@@ -931,7 +1151,29 @@ export const FacultyPanel: React.FC = () => {
 
             <div className="lg:col-span-2 space-y-6">
               <div className="bg-white p-8 rounded-[32px] border border-primary/10 shadow-sm">
-                <h3 className="text-xl font-black text-slate-800 mb-8">History</h3>
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-xl font-black text-slate-800">Study Log History</h3>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleDownloadCSV('studylog')}
+                      className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-all border border-emerald-100 flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" /> Export CSV
+                    </button>
+                    <button 
+                      onClick={() => handlePrintDocument('studylog')}
+                      className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-2"
+                    >
+                      <Printer className="w-4 h-4" /> Print Logs
+                    </button>
+                    <button 
+                      onClick={() => handleShare('Faculty Study Logs')}
+                      className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all"
+                    >
+                      Share
+                    </button>
+                  </div>
+                </div>
                 <div className="space-y-6">
                   {studyLogs.map((log) => (
                     <div key={log.id} className="p-6 bg-slate-50 rounded-[24px] border border-slate-100 space-y-4">

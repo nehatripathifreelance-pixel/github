@@ -72,72 +72,86 @@ const REPORT_CATEGORIES: ReportCategory[] = [
   { id: 'ADMISSION_REPORT', title: 'Admission Report', description: 'Detailed analysis of admission applications', icon: FileText, color: 'text-amber-600' },
 ];
 
-const ReportFilters = ({ filters, setFilters, masterData }: any) => {
-  return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-4">
+const ReportFilters: React.FC<{ filters: any, setFilters: (f: any) => void, masterData: any, includeDate?: boolean, dateRange?: any, setDateRange?: (d: any) => void }> = ({ filters, setFilters, masterData, includeDate, dateRange, setDateRange }) => (
+  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-5 gap-4">
+    <div className="space-y-1">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Course</label>
+      <select 
+        value={filters.course}
+        onChange={(e) => setFilters({...filters, course: e.target.value})}
+        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+      >
+        <option value="">All Courses</option>
+        {masterData.courses.map((c: any) => (
+          <option key={c.id} value={c.id}>{c.name}</option>
+        ))}
+      </select>
+    </div>
+    <div className="space-y-1">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Branch</label>
+      <select 
+        value={filters.branch}
+        onChange={(e) => setFilters({...filters, branch: e.target.value})}
+        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+      >
+        <option value="">All Branches</option>
+        {masterData.branches.map((b: string) => (
+          <option key={b} value={b}>{b}</option>
+        ))}
+      </select>
+    </div>
+    <div className="space-y-1">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Year</label>
+      <select 
+        value={filters.year}
+        onChange={(e) => setFilters({...filters, year: e.target.value})}
+        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+      >
+        <option value="">All Years</option>
+        {masterData.years.map((y: string) => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+    </div>
+    {includeDate && setDateRange && (
+      <>
+        <div className="space-y-1">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">From Date</label>
+          <input 
+            type="date" 
+            value={dateRange.start}
+            onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
+            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">To Date</label>
+          <input 
+            type="date" 
+            value={dateRange.end}
+            onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
+            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+        </div>
+      </>
+    )}
+    {!includeDate && (
       <div className="space-y-1">
-        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Student</label>
-        <select 
-          value={filters.student}
-          onChange={(e) => setFilters({...filters, student: e.target.value})}
-          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-        >
-          <option value="">All Students</option>
-          {masterData.students.map((s: any) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Branch / Course</label>
-        <select 
-          value={filters.branch}
-          onChange={(e) => setFilters({...filters, branch: e.target.value})}
-          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-        >
-          <option value="">All Branches</option>
-          {masterData.courses.map((c: any) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Year</label>
-        <select 
-          value={filters.year}
-          onChange={(e) => setFilters({...filters, year: e.target.value})}
-          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-        >
-          <option value="">All Years</option>
-          {['1st Year', '2nd Year', '3rd Year', '4th Year'].map(y => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Session / Batch</label>
+        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Session</label>
         <select 
           value={filters.session}
           onChange={(e) => setFilters({...filters, session: e.target.value})}
-          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
         >
           <option value="">All Sessions</option>
-          {['2023-24', '2024-25', '2025-26'].map(s => (
+          {masterData.sessions.map((s: string) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
       </div>
-      <div className="flex items-end">
-        <button 
-          onClick={() => setFilters({ student: '', branch: '', year: '', session: '', course: '' })}
-          className="w-full px-4 py-2 text-slate-500 font-bold text-sm hover:text-indigo-600 transition-colors"
-        >
-          Reset Filters
-        </button>
-      </div>
-    </div>
-  );
-};
+    )}
+  </div>
+);
 
 export const Reports: React.FC = () => {
   const { user } = useAuth();
@@ -215,7 +229,10 @@ export const Reports: React.FC = () => {
   };
 
   const fetchAdmissionData = async () => {
-    const { data } = await supabase.from('applications').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase
+      .from('applications')
+      .select('*, courses(name)')
+      .order('created_at', { ascending: false });
     if (data) setAdmissionData(data);
   };
 
@@ -376,25 +393,45 @@ export const Reports: React.FC = () => {
     const matchesSearch = (student.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                          (student.roll || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStudent = !filters.student || student.student_id === filters.student;
-    const matchesBranch = !filters.branch || student.branch === filters.branch || student.branch === masterData.courses.find((c: any) => c.id === filters.branch)?.name;
+    
+    // Course filter matching
+    const matchesCourse = !filters.course || student.course_id === filters.course;
+    const matchesBranch = !filters.branch || student.branch === filters.branch;
+    
     const matchesYear = !filters.year || student.year === filters.year;
     const matchesSession = !filters.session || student.batch === filters.session;
+    
+    const dueDate = new Date(student.date || student.created_at).getTime();
+    const matchesDate = (!dateRange.start || dueDate >= new Date(dateRange.start).getTime()) && 
+                       (!dateRange.end || dueDate <= new Date(dateRange.end).getTime());
+
     const hasDues = student.dues > 0;
     
-    return matchesSearch && matchesStudent && matchesBranch && matchesYear && matchesSession && hasDues;
+    return matchesSearch && matchesStudent && matchesBranch && matchesCourse && matchesYear && matchesSession && matchesDate && hasDues;
   });
 
   const filteredFinancialData = {
     income: financialData.income.filter(item => {
       const matchesSearch = (item.description || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                            (item.income_categories?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
-      // Add more filters if needed
-      return matchesSearch;
+      
+      const itemDate = new Date(item.date).getTime();
+      const matchesDate = (!dateRange.start || itemDate >= new Date(dateRange.start).getTime()) && 
+                         (!dateRange.end || itemDate <= new Date(dateRange.end).getTime());
+
+      // Financials usually don't have course/branch directly unless linked to fees
+      // We will skip branch/course for general income unless it's a fee (already in description usually)
+      return matchesSearch && matchesDate;
     }),
     expenses: financialData.expenses.filter(item => {
       const matchesSearch = (item.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                            (item.expense_categories?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
+      
+      const itemDate = new Date(item.date).getTime();
+      const matchesDate = (!dateRange.start || itemDate >= new Date(dateRange.start).getTime()) && 
+                         (!dateRange.end || itemDate <= new Date(dateRange.end).getTime());
+
+      return matchesSearch && matchesDate;
     })
   };
 
@@ -402,20 +439,57 @@ export const Reports: React.FC = () => {
     const matchesSearch = (result.students?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                          (result.students?.roll_no || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStudent = !filters.student || result.student_id === filters.student;
-    const matchesBranch = !filters.branch || result.students?.branch === filters.branch || result.students?.branch === masterData.courses.find((c: any) => c.id === filters.branch)?.name;
+    
+    // Exact match for branch/course
+    const matchesBranch = !filters.branch || result.students?.branch === filters.branch;
+    const matchesCourse = !filters.course || result.students?.course_id === filters.course;
+    
     const matchesYear = !filters.year || result.students?.year === filters.year;
     
-    return matchesSearch && matchesStudent && matchesBranch && matchesYear;
+    const resultDate = new Date(result.created_at).getTime();
+    const matchesDate = (!dateRange.start || resultDate >= new Date(dateRange.start).getTime()) && 
+                       (!dateRange.end || resultDate <= new Date(dateRange.end).getTime());
+    
+    return matchesSearch && matchesStudent && matchesBranch && matchesCourse && matchesYear && matchesDate;
   });
 
+  const handleExportCSV = (data: any[], fileName: string) => {
+    exportToExcel(data, fileName); // exportToExcel uses xlsx which generates standard CSV-compatible Excel files
+  };
+
   const renderProfitLoss = () => {
-    const totalIncome = filteredFinancialData.income.reduce((sum, i) => sum + i.amount, 0);
-    const totalExpenses = filteredFinancialData.expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalIncome = filteredFinancialData.income.reduce((sum, i) => sum + Number(i.amount), 0);
+    const totalExpenses = filteredFinancialData.expenses.reduce((sum, e) => sum + Number(e.amount), 0);
     const netProfit = totalIncome - totalExpenses;
 
     return (
       <div className="space-y-6">
-        <ReportFilters filters={filters} setFilters={setFilters} masterData={masterData} />
+        <ReportFilters 
+          filters={filters} 
+          setFilters={setFilters} 
+          masterData={masterData} 
+          includeDate={true} 
+          dateRange={dateRange} 
+          setDateRange={setDateRange} 
+        />
+        <div className="flex items-center justify-end gap-3">
+          <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+            <Printer className="w-4 h-4" /> Print
+          </button>
+          <button 
+            onClick={() => {
+              const headers = ['Date', 'Description', 'Category', 'Type', 'Amount'];
+              const data = [
+                ...filteredFinancialData.income.map(i => [formatDate(i.date), i.description || 'Income', i.income_categories?.name, 'CREDIT', formatCurrency(i.amount)]),
+                ...filteredFinancialData.expenses.map(e => [formatDate(e.date), e.purpose || e.title, e.expense_categories?.name, 'DEBIT', formatCurrency(e.amount)])
+              ];
+              exportToPDF('Profit & Loss Report', headers, data, 'Profit_Loss');
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-rose-600 rounded-xl text-sm font-bold hover:bg-rose-50 transition-all shadow-sm"
+          >
+            <FileDown className="w-4 h-4" /> PDF
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
             <div className="flex items-center justify-between mb-4">
@@ -482,9 +556,16 @@ export const Reports: React.FC = () => {
 
   const renderDuesFees = () => (
     <div className="space-y-6">
-      <ReportFilters filters={filters} setFilters={setFilters} masterData={masterData} />
+      <ReportFilters 
+        filters={filters} 
+        setFilters={setFilters} 
+        masterData={masterData} 
+        includeDate={true} 
+        dateRange={dateRange} 
+        setDateRange={setDateRange} 
+      />
       
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input 
@@ -492,40 +573,57 @@ export const Reports: React.FC = () => {
             placeholder="Search student or roll number..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
           />
         </div>
         <div className="flex items-center gap-3">
           <button 
-            onClick={handleExportDuesExcel}
+            onClick={handlePrint}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm"
           >
-            <FileSpreadsheet className="w-4 h-4" />
-            Excel
+            <Printer className="w-4 h-4" /> Print
+          </button>
+          <button 
+            onClick={() => {
+              const data = filteredDues.map(s => ({
+                'Student Name': s.name,
+                'Roll No': s.roll,
+                'Branch': s.branch,
+                'Year': s.year,
+                'Total Fee': s.total,
+                'Paid': s.paid,
+                'Dues': s.dues,
+                'Status': s.status
+              }));
+              handleExportCSV(data, 'Dues_Report');
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-50 transition-all shadow-sm"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> CSV
           </button>
           <button 
             onClick={handleExportDuesPDF}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
           >
-            <Download className="w-4 h-4" />
-            Export PDF
+            <Download className="w-4 h-4" /> PDF
           </button>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Student Name</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Roll No</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Total Fee</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Paid</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Dues</th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Student Name</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Roll No</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Total Fee</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Paid</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Dues</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
             {filteredDues.map((student) => (
               <tr key={student.roll} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4">
@@ -590,7 +688,8 @@ export const Reports: React.FC = () => {
         </table>
       </div>
     </div>
-  );
+  </div>
+);
 
   const filteredPapers = papers.filter(paper => {
     const matchesSearch = (paper.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -611,6 +710,28 @@ export const Reports: React.FC = () => {
       <div className="space-y-6">
         <ReportFilters filters={filters} setFilters={setFilters} masterData={masterData} />
 
+        <div className="flex items-center justify-end gap-3 mb-4">
+          <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+            <Printer className="w-4 h-4" /> Print Results
+          </button>
+          <button 
+            onClick={() => {
+              const data = filteredExamResults.map(r => ({
+                'Student Name': r.students?.name,
+                'Roll No': r.students?.roll_no,
+                'Exam': exams.find(e => e.id === r.exam_id)?.title,
+                'Marks': r.marks_obtained,
+                'Total': exams.find(e => e.id === r.exam_id)?.total_marks,
+                'Percentage': ((r.marks_obtained / (exams.find(e => e.id === r.exam_id)?.total_marks || 100)) * 100).toFixed(2),
+                'Grade': r.grade || ( (r.marks_obtained / (exams.find(e => e.id === r.exam_id)?.total_marks || 100)) >= 0.4 ? 'PASS' : 'FAIL')
+              }));
+              handleExportCSV(data, 'Exam_Results');
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-50 transition-all shadow-sm"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> CSV
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
             { title: 'Total Exams', value: totalExams.toString(), icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -686,54 +807,82 @@ export const Reports: React.FC = () => {
 
     let runningBalance = 0;
     const ledgerEntries = allTransactions.map(t => {
-      if (t.type === 'CREDIT') runningBalance += t.amount;
-      else runningBalance -= t.amount;
+      if (t.type === 'CREDIT') runningBalance += Number(t.amount);
+      else runningBalance -= Number(t.amount);
       return { ...t, balance: runningBalance };
     }).reverse();
 
     return (
       <div className="space-y-6">
-        <ReportFilters filters={filters} setFilters={setFilters} masterData={masterData} />
+        <ReportFilters 
+          filters={filters} 
+          setFilters={setFilters} 
+          masterData={masterData} 
+          includeDate={true} 
+          dateRange={dateRange} 
+          setDateRange={setDateRange} 
+        />
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="bg-white p-2 rounded-xl border border-slate-200 flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-slate-400" />
-              <input 
-                type="date" 
-                value={dateRange.start}
-                onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
-                className="text-sm outline-none bg-transparent" 
-              />
-              <span className="text-slate-300">to</span>
-              <input 
-                type="date" 
-                value={dateRange.end}
-                onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
-                className="text-sm outline-none bg-transparent" 
-              />
-            </div>
+          <div className="flex items-center gap-3">
+             <div className="relative max-w-xs">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input 
+                  type="text" 
+                  placeholder="Search ledger..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                />
+              </div>
           </div>
-          <button 
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
-          >
-            <Printer className="w-4 h-4" />
-            Print Ledger
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm"
+            >
+              <Printer className="w-4 h-4" /> Print
+            </button>
+            <button 
+               onClick={() => {
+                const data = ledgerEntries.map(e => ({
+                  Date: formatDate(e.date),
+                  Description: e.desc,
+                  Type: e.type,
+                  Amount: formatCurrency(e.amount),
+                  Balance: formatCurrency(e.balance)
+                }));
+                handleExportCSV(data, 'Institutional_Ledger');
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-50 transition-all shadow-sm"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> CSV
+            </button>
+            <button 
+              onClick={() => {
+                const headers = ['Date', 'Description', 'Type', 'Amount', 'Balance'];
+                const data = ledgerEntries.map(e => [formatDate(e.date), e.desc, e.type, formatCurrency(e.amount), formatCurrency(e.balance)]);
+                exportToPDF('Institutional Ledger', headers, data, 'Institutional_Ledger');
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
+            >
+              <Download className="w-4 h-4" /> PDF
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Description</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Debit (Dr)</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Credit (Cr)</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Balance</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[800px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Description</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Debit (Dr)</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Credit (Cr)</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
               {ledgerEntries.map((entry, i) => (
                 <tr key={i} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 text-sm text-slate-500">{formatDate(entry.date)}</td>
@@ -754,30 +903,86 @@ export const Reports: React.FC = () => {
           </table>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   const renderPassingReport = () => {
-    const totalStudents = filteredExamResults.length;
-    const passedStudents = filteredExamResults.filter(r => (r.marks_obtained / (exams.find(e => e.id === r.exam_id)?.total_marks || 100)) >= 0.4).length;
-    const passPercentage = totalStudents > 0 ? (passedStudents / totalStudents) * 100 : 0;
-    const toppers = filteredExamResults.filter(r => (r.marks_obtained / (exams.find(e => e.id === r.exam_id)?.total_marks || 100)) >= 0.9).length;
-    const failures = totalStudents - passedStudents;
+    const totalStudentsCount = filteredExamResults.length;
+    const passedStudentsCount = filteredExamResults.filter(r => {
+      const exam = exams.find(e => e.id === r.exam_id);
+      return (Number(r.marks_obtained) / (exam?.total_marks || 100)) >= 0.4;
+    }).length;
+    const passPercentageValue = totalStudentsCount > 0 ? (passedStudentsCount / totalStudentsCount) * 100 : 0;
+    const topperStudentsCount = filteredExamResults.filter(r => {
+      const exam = exams.find(e => e.id === r.exam_id);
+      return (Number(r.marks_obtained) / (exam?.total_marks || 100)) >= 0.9;
+    }).length;
+    const failuresCount = totalStudentsCount - passedStudentsCount;
 
     return (
       <div className="space-y-6">
-        <ReportFilters filters={filters} setFilters={setFilters} masterData={masterData} />
+        <ReportFilters 
+          filters={filters} 
+          setFilters={setFilters} 
+          masterData={masterData} 
+          includeDate={true} 
+          dateRange={dateRange} 
+          setDateRange={setDateRange} 
+        />
+        
+        <div className="flex items-center justify-end gap-3 mb-4">
+          <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+            <Printer className="w-4 h-4" /> Print
+          </button>
+          {/* ... existing export buttons ... */}
+          <button 
+             onClick={() => {
+              const data = filteredExamResults.map(r => {
+                const exam = exams.find(e => e.id === r.exam_id);
+                const perc = (r.marks_obtained / (exam?.total_marks || 100)) * 100;
+                return {
+                  'Student Name': r.students?.name,
+                  'Roll No': r.students?.roll_no,
+                  'Exam': exam?.title,
+                  'Percentage': perc.toFixed(1) + '%',
+                  'Grade': r.grade || (perc >= 40 ? 'PASS' : 'FAIL'),
+                  'Date': formatDate(r.created_at)
+                };
+              });
+              handleExportCSV(data, 'Passing_Report');
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-50 transition-all shadow-sm"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> CSV
+          </button>
+          <button 
+            onClick={() => {
+              const headers = ['Student', 'Exam', 'Percentage', 'Status', 'Date'];
+              const data = filteredExamResults.map(r => {
+                const exam = exams.find(e => e.id === r.exam_id);
+                const perc = (r.marks_obtained / (exam?.total_marks || 100)) * 100;
+                return [r.students?.name, exam?.title, perc.toFixed(1) + '%', perc >= 40 ? 'PASS' : 'FAIL', formatDate(r.created_at)];
+              });
+              exportToPDF('Passing Performance Report', headers, data, 'Passing_Report');
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
+          >
+            <Download className="w-4 h-4" /> PDF
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-4">Overall Pass Percentage</h3>
             <div className="flex items-end gap-4">
-              <p className="text-4xl font-black text-emerald-600">{passPercentage.toFixed(1)}%</p>
+              <p className="text-4xl font-black text-emerald-600">{passPercentageValue.toFixed(1)}%</p>
             </div>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-4">Toppers Count (90%+)</h3>
             <div className="flex items-end gap-4">
-              <p className="text-4xl font-black text-indigo-600">{toppers}</p>
+              <p className="text-4xl font-black text-indigo-600">{topperStudentsCount}</p>
               <span className="text-indigo-500 text-sm font-bold mb-1 flex items-center gap-1">
                 <Users className="w-4 h-4" />
                 Students
@@ -787,7 +992,7 @@ export const Reports: React.FC = () => {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-4">Failures Count</h3>
             <div className="flex items-end gap-4">
-              <p className="text-4xl font-black text-rose-600">{failures}</p>
+              <p className="text-4xl font-black text-rose-600">{failuresCount}</p>
               <span className="text-rose-500 text-sm font-bold mb-1 flex items-center gap-1">
                 <AlertCircle className="w-4 h-4" />
                 Requires Attention
@@ -831,14 +1036,60 @@ export const Reports: React.FC = () => {
   };
 
   const renderFineReport = () => {
-    const fineFees = duesData.filter(f => f.type?.toLowerCase().includes('fine'));
+    const fineFees = duesData.filter(f => {
+      const matchesType = f.type?.toLowerCase().includes('fine');
+      const matchesBranch = !filters.branch || f.branch === filters.branch;
+      const matchesCourse = !filters.course || f.course_id === filters.course;
+      const matchesYear = !filters.year || f.year === filters.year;
+      return matchesType && matchesBranch && matchesCourse && matchesYear;
+    });
     const totalFines = fineFees.reduce((sum, f) => sum + f.total, 0);
     const collectedFines = fineFees.reduce((sum, f) => sum + f.paid, 0);
     const pendingFines = fineFees.reduce((sum, f) => sum + f.dues, 0);
 
     return (
       <div className="space-y-6">
-        <ReportFilters filters={filters} setFilters={setFilters} masterData={masterData} />
+        <ReportFilters 
+          filters={filters} 
+          setFilters={setFilters} 
+          masterData={masterData} 
+          includeDate={true} 
+          dateRange={dateRange} 
+          setDateRange={setDateRange} 
+        />
+        
+        <div className="flex items-center justify-end gap-3 mb-4">
+          <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+            <Printer className="w-4 h-4" /> Print
+          </button>
+          <button 
+             onClick={() => {
+              const data = fineFees.map(f => ({
+                'Student Name': f.name,
+                'Roll No': f.roll,
+                'Reason': f.type,
+                'Amount': f.total,
+                'Paid': f.paid,
+                'Pending': f.dues,
+                'Status': f.dues === 0 ? 'PAID' : 'PENDING'
+              }));
+              handleExportCSV(data, 'Fine_Report');
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-50 transition-all shadow-sm"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> CSV
+          </button>
+          <button 
+            onClick={() => {
+              const headers = ['Student', 'Reason', 'Amount', 'Status'];
+              const data = fineFees.map(f => [f.name, f.type, formatCurrency(f.total), f.dues === 0 ? 'PAID' : 'PENDING']);
+              exportToPDF('Fines & Penalties Report', headers, data, 'Fine_Report');
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
+          >
+            <Download className="w-4 h-4" /> PDF
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 bg-rose-50">
@@ -864,16 +1115,17 @@ export const Reports: React.FC = () => {
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Student</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Reason</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[600px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Student</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Reason</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
               {fineFees.map((fine, i) => (
                 <tr key={i} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 font-bold text-slate-700">{fine.name}</td>
@@ -900,8 +1152,9 @@ export const Reports: React.FC = () => {
           </table>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   const renderIncomeExpense = () => {
     const incomeByCat = masterData.incomeCategories.map((cat: any) => {
@@ -923,7 +1176,32 @@ export const Reports: React.FC = () => {
 
     return (
       <div className="space-y-6">
-        <ReportFilters filters={filters} setFilters={setFilters} masterData={masterData} />
+        <ReportFilters 
+          filters={filters} 
+          setFilters={setFilters} 
+          masterData={masterData} 
+          includeDate={true} 
+          dateRange={dateRange} 
+          setDateRange={setDateRange} 
+        />
+        
+        <div className="flex items-center justify-end gap-3 mb-4">
+          <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+            <Printer className="w-4 h-4" /> Print
+          </button>
+          <button 
+             onClick={() => {
+              const data = [
+                ...incomeByCat.map(i => ({ Category: i.label, Type: 'Income', Amount: i.amount })),
+                ...expenseByCat.map(e => ({ Category: e.label, Type: 'Expense', Amount: e.amount }))
+              ];
+              handleExportCSV(data, 'Income_Expense_Summary');
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-50 transition-all shadow-sm"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> CSV
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="font-black text-slate-800 mb-6 flex items-center gap-2">
@@ -976,8 +1254,8 @@ export const Reports: React.FC = () => {
     // Filter fees for this student
     const studentFees = duesData.filter(f => f.student_id === filters.student || (f.roll === selectedStudent?.roll_no && selectedStudent?.roll_no));
     
-    const totalFees = studentFees.reduce((sum, f) => sum + f.total, 0);
-    const totalPaid = studentFees.reduce((sum, f) => sum + f.paid, 0);
+    const totalFees = studentFees.reduce((sum, f) => sum + Number(f.total), 0);
+    const totalPaid = studentFees.reduce((sum, f) => sum + Number(f.paid), 0);
     const outstanding = totalFees - totalPaid;
 
     const allTxns = studentFees.flatMap(f => {
@@ -1003,14 +1281,19 @@ export const Reports: React.FC = () => {
 
     let balance = 0;
     const transactions = allTxns.map(t => {
-      if (t.type === 'DEBIT') balance += t.amount;
-      else balance -= t.amount;
+      if (t.type === 'DEBIT') balance += Number(t.amount);
+      else balance -= Number(t.amount);
       return { ...t, balance };
     }).reverse();
 
     return (
       <div className="space-y-6">
-        <ReportFilters filters={filters} setFilters={setFilters} masterData={masterData} />
+        <ReportFilters 
+          filters={filters} 
+          setFilters={setFilters} 
+          masterData={masterData} 
+          includeDate={false}
+        />
         
         {!filters.student ? (
           <div className="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center">
@@ -1020,17 +1303,39 @@ export const Reports: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-6">
-              <div className="w-20 h-20 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 text-3xl font-black">
-                {selectedStudent?.name?.charAt(0)}
-              </div>
-              <div>
-                <h2 className="text-2xl font-black text-slate-900">{selectedStudent?.name}</h2>
-                <p className="text-slate-500 font-bold">Roll No: {selectedStudent?.roll_no} • {selectedStudent?.branch}</p>
-                <div className="flex items-center gap-4 mt-2">
-                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">Active Student</span>
-                  <span className="text-xs font-bold text-slate-500">Batch: {selectedStudent?.batch}</span>
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-6">
+                <div className="w-20 h-20 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 text-3xl font-black">
+                  {selectedStudent?.name?.charAt(0)}
                 </div>
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">{selectedStudent?.name}</h2>
+                  <p className="text-slate-500 font-bold">Roll No: {selectedStudent?.roll_no} • {selectedStudent?.branch}</p>
+                  <div className="flex items-center gap-4 mt-2">
+                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">Active Student</span>
+                    <span className="text-xs font-bold text-slate-500">Batch: {selectedStudent?.batch}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+                  <Printer className="w-4 h-4" /> Print
+                </button>
+                <button 
+                  onClick={() => {
+                    const data = transactions.map(t => ({
+                      Date: formatDate(t.date),
+                      Description: t.desc,
+                      Type: t.type,
+                      Amount: t.amount,
+                      Balance: t.balance
+                    }));
+                    handleExportCSV(data, `Ledger_${selectedStudent?.name}`);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-50 transition-all shadow-sm"
+                >
+                  <FileSpreadsheet className="w-4 h-4" /> CSV
+                </button>
               </div>
             </div>
 
@@ -1053,17 +1358,18 @@ export const Reports: React.FC = () => {
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <h3 className="font-black text-slate-800">Transaction History</h3>
               </div>
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Description</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Balance</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[800px]">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Description</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
                   {transactions.map((entry, i) => (
                     <tr key={i} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 text-sm text-slate-500">{formatDate(entry.date)}</td>
@@ -1097,6 +1403,7 @@ export const Reports: React.FC = () => {
                 </tbody>
               </table>
             </div>
+          </div>
           </>
         )}
       </div>
@@ -1105,59 +1412,69 @@ export const Reports: React.FC = () => {
 
   const renderAdmissionReport = () => {
     const filteredApps = admissionData.filter(app => {
-      const matchesSearch = (app.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchesSearch = (app.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                            (app.id || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchesBranch = !filters.branch || app.branch === filters.branch;
+      const matchesCourse = !filters.course || app.course_id === filters.course;
       const matchesStatus = filters.status === 'All' || app.status === filters.status;
       
-      return matchesSearch && matchesBranch && matchesStatus;
+      const appDate = new Date(app.created_at).getTime();
+      const matchesDate = (!dateRange.start || appDate >= new Date(dateRange.start).getTime()) && 
+                         (!dateRange.end || appDate <= new Date(dateRange.end).getTime());
+
+      return matchesSearch && matchesBranch && matchesCourse && matchesStatus && matchesDate;
     });
 
     return (
       <div className="space-y-6">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Branch</label>
-            <select 
-              value={filters.branch}
-              onChange={(e) => setFilters({...filters, branch: e.target.value})}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-            >
-              <option value="">All Branches</option>
-              {masterData.branches.map((b: string) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
+        <ReportFilters 
+          filters={filters} 
+          setFilters={setFilters} 
+          masterData={masterData} 
+          includeDate={true} 
+          dateRange={dateRange} 
+          setDateRange={setDateRange} 
+        />
+        
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex-1 max-w-md relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text" 
+              placeholder="Search applicants..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+            />
           </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</label>
-            <select 
-              value={filters.status}
-              onChange={(e) => setFilters({...filters, status: e.target.value})}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handlePrint}
+              className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm"
             >
-              <option value="All">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Approved">Approved</option>
-              <option value="Verified">Verified</option>
-              <option value="Rejected">Rejected</option>
-            </select>
-          </div>
-          <div className="md:col-span-2 flex items-end gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input 
-                type="text" 
-                placeholder="Search applicants..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-            </div>
+              <Printer className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={() => {
+                const data = filteredApps.map(a => ({
+                  ID: a.id,
+                  Name: a.full_name,
+                  Branch: a.branch,
+                  Course: a.courses?.name,
+                  Score: a.score,
+                  Status: a.status,
+                  Date: formatDate(a.created_at)
+                }));
+                handleExportCSV(data, 'Admission_Report');
+              }}
+              className="px-4 py-2 bg-white border border-slate-200 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-50 transition-all shadow-sm"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+            </button>
             <button 
               onClick={() => {
                 const headers = ['ID', 'Name', 'Branch', 'Score', 'Status', 'Date'];
-                const data = filteredApps.map(a => [a.id, a.name, a.branch, a.score, a.status, formatDate(a.date)]);
+                const data = filteredApps.map(a => [a.id, a.full_name, a.branch, a.score, a.status, formatDate(a.created_at)]);
                 exportToPDF('Admission Report', headers, data, 'Admission_Report');
               }}
               className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
@@ -1168,30 +1485,31 @@ export const Reports: React.FC = () => {
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Applicant</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ID</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Branch</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Score</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[800px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Applicant</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ID</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Course</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Score</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
               {filteredApps.map((app) => (
                 <tr key={app.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 font-bold text-xs">
-                        {(app.name || '').charAt(0)}
+                        {(app.full_name || '').charAt(0)}
                       </div>
-                      <span className="font-bold text-slate-700">{app.name}</span>
+                      <span className="font-bold text-slate-700">{app.full_name}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm font-mono text-slate-500">{app.id}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{app.branch}</td>
+                  <td className="px-6 py-4 text-sm font-mono text-slate-500 text-[10px]">{app.id}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{app.courses?.name || app.branch}</td>
                   <td className="px-6 py-4 text-sm font-bold text-slate-700">{app.score}</td>
                   <td className="px-6 py-4">
                     <span className={cn(
@@ -1202,7 +1520,7 @@ export const Reports: React.FC = () => {
                       {app.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500">{formatDate(app.date)}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500">{formatDate(app.created_at)}</td>
                 </tr>
               ))}
               {filteredApps.length === 0 && (
@@ -1216,8 +1534,9 @@ export const Reports: React.FC = () => {
           </table>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   const renderContent = () => {
     switch (activeReport) {

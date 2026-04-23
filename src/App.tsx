@@ -25,6 +25,8 @@ import { Profile } from './modules/Profile/Profile';
 import { Communication } from './modules/Communication/Communication';
 import { StudentPanel } from './modules/Students/StudentPanel';
 import { FacultyPanel } from './modules/Faculty/FacultyPanel';
+import { StaffPanel } from './modules/Staff/StaffPanel';
+import { AccountantPanel } from './modules/Accountant/AccountantPanel';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode, allowedRoles?: string[] }> = ({ children, allowedRoles }) => {
   const { user, isLoading } = useAuth();
@@ -187,6 +189,22 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['PARENT']}>
                 <ParentPanel />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/staff-panel" 
+            element={
+              <ProtectedRoute allowedRoles={['STAFF']}>
+                <StaffPanel />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/accountant-panel" 
+            element={
+              <ProtectedRoute allowedRoles={['ACCOUNTANT']}>
+                <AccountantPanel />
               </ProtectedRoute>
             } 
           />

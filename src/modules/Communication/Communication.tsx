@@ -32,7 +32,7 @@ export const Communication: React.FC = () => {
     title: '',
     content: '',
     type: 'Notice',
-    target_audience: 'All',
+    audience: 'All',
     is_template: false
   });
 
@@ -76,7 +76,7 @@ export const Communication: React.FC = () => {
       if (error) throw error;
 
       setIsModalOpen(false);
-      setForm({ title: '', content: '', type: 'Notice', target_audience: 'All', is_template: false });
+      setForm({ title: '', content: '', type: 'Notice', audience: 'All', is_template: false });
       await Promise.all([fetchNotices(), fetchTemplates()]);
       alert(form.is_template ? 'Template saved!' : 'Notice broadcasted successfully!');
     } catch (error: any) {
@@ -91,7 +91,7 @@ export const Communication: React.FC = () => {
       title: template.title,
       content: template.content,
       type: template.type,
-      target_audience: template.target_audience,
+      audience: template.audience,
       is_template: false
     });
     setIsModalOpen(true);
@@ -166,7 +166,7 @@ export const Communication: React.FC = () => {
                         </div>
                         <div>
                           <h3 className="font-bold text-slate-800">{notice.title}</h3>
-                          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{formatDate(notice.created_at)} • To: {notice.target_audience}</p>
+                          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{formatDate(notice.created_at)} • To: {notice.audience}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
@@ -198,7 +198,7 @@ export const Communication: React.FC = () => {
                         </div>
                         <div>
                           <h3 className="font-bold text-slate-800">{template.title}</h3>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type: {template.type} • Target: {template.target_audience}</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type: {template.type} • Target: {template.audience}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -307,8 +307,8 @@ export const Communication: React.FC = () => {
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Audience</label>
                     <select 
-                      value={form.target_audience}
-                      onChange={(e) => setForm({...form, target_audience: e.target.value})}
+                      value={form.audience}
+                      onChange={(e) => setForm({...form, audience: e.target.value})}
                       className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     >
                       <option value="All">Everyone</option>

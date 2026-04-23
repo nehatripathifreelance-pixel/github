@@ -428,6 +428,8 @@ export const Students: React.FC = () => {
     signatureUrl: '',
     loginId: '',
     loginPassword: '12345',
+    parentLoginId: '',
+    parentLoginPassword: '12345',
   };
 
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
@@ -439,8 +441,13 @@ export const Students: React.FC = () => {
       const year = new Date().getFullYear();
       const random = Math.floor(1000 + Math.random() * 9000);
       const studentId = `STU${year}${random}`;
+      const parentId = `P-STU${year}${random}`;
       setGeneratedId(studentId);
-      setFormData(prev => ({ ...prev, loginId: studentId }));
+      setFormData(prev => ({ 
+        ...prev, 
+        loginId: studentId,
+        parentLoginId: parentId
+      }));
     }
   }, [view]);
 
@@ -513,13 +520,22 @@ export const Students: React.FC = () => {
       
       if (result.success) {
         // Update credentials if they exist or create if not
-        await supabase.from('user_credentials').upsert({
-          id: studentData.id,
-          password: formData.loginPassword,
-          role: 'STUDENT',
-          name: studentData.name,
-          email: studentData.email
-        });
+        await Promise.all([
+          supabase.from('user_credentials').upsert({
+            id: studentData.id,
+            password: formData.loginPassword,
+            role: 'STUDENT',
+            name: studentData.name,
+            email: studentData.email
+          }),
+          supabase.from('user_credentials').upsert({
+            id: formData.parentLoginId,
+            password: formData.parentLoginPassword,
+            role: 'PARENT',
+            name: `Parent of ${studentData.name}`,
+            email: formData.parentEmail || studentData.email
+          })
+        ]);
       }
     } else {
       result = await addStudentToSupabase(studentData);
@@ -527,13 +543,22 @@ export const Students: React.FC = () => {
       if (result.success) {
         // Create User Credentials for Login only for NEW students
         // Use student ID as the unique identifier for credentials
-        await supabase.from('user_credentials').upsert({
-          id: studentData.id,
-          password: formData.loginPassword,
-          role: 'STUDENT',
-          name: studentData.name,
-          email: studentData.email
-        });
+        await Promise.all([
+          supabase.from('user_credentials').upsert({
+            id: studentData.id,
+            password: formData.loginPassword,
+            role: 'STUDENT',
+            name: studentData.name,
+            email: studentData.email
+          }),
+          supabase.from('user_credentials').upsert({
+            id: formData.parentLoginId,
+            password: formData.parentLoginPassword,
+            role: 'PARENT',
+            name: `Parent of ${studentData.name}`,
+            email: formData.parentEmail || studentData.email
+          })
+        ]);
 
         // Initialize fees for student based on course
         const studentCourse = courses.find(c => c.id === formData.course);
@@ -604,13 +629,24 @@ export const Students: React.FC = () => {
       ...student as any,
       course: student.courseId,
       loginId: student.id,
-      loginPassword: '12345'
+      loginPassword: '12345',
+      parentLoginId: `P-${student.id}`,
+      parentLoginPassword: '12345'
     });
 
     // Fetch existing password if any
-    const { data: creds } = await supabase.from('user_credentials').select('password').eq('id', student.id).single();
-    if (creds) {
-      setFormData(prev => ({ ...prev, loginPassword: creds.password }));
+    const { data: studentCreds } = await supabase.from('user_credentials').select('password').eq('id', student.id).single();
+    if (studentCreds) {
+      setFormData(prev => ({ ...prev, loginPassword: studentCreds.password }));
+    }
+
+    const { data: parentCreds } = await supabase.from('user_credentials').select('id, password').eq('id', `P-${student.id}`).single();
+    if (parentCreds) {
+      setFormData(prev => ({ 
+        ...prev, 
+        parentLoginId: parentCreds.id,
+        parentLoginPassword: parentCreds.password 
+      }));
     }
 
     setGeneratedId(student.id);
@@ -1090,44 +1126,94 @@ export const Students: React.FC = () => {
           <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-12">
             {/* Login Credentials Section */}
             <div className="space-y-8 bg-indigo-50/50 p-8 rounded-[32px] border border-indigo-100/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
-                  <ShieldAlert className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-indigo-900">Login Credentials</h3>
-                  <p className="text-sm text-indigo-700/70 font-medium">Manage student authentication access</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
+                    <ShieldAlert className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-indigo-900">Login Credentials</h3>
+                    <p className="text-sm text-indigo-700/70 font-medium">Manage student and parent authentication access</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Student ID / Login Username</label>
-                  <div className="relative">
-                    <Users className="w-4 h-4 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                    <input 
-                      type="text" 
-                      name="loginId"
-                      required
-                      value={formData.loginId}
-                      onChange={handleInputChange}
-                      disabled={!!editingStudent}
-                      className="w-full pl-11 pr-4 py-3 bg-white border-none rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-50"
-                    />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                {/* Student Login */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 pb-2 border-b border-indigo-200/50">
+                    <GraduationCap className="w-4 h-4 text-primary" />
+                    <h4 className="text-sm font-black text-primary uppercase tracking-widest">Student Login</h4>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Student ID / Username</label>
+                      <div className="relative">
+                        <Users className="w-4 h-4 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                        <input 
+                          type="text" 
+                          name="loginId"
+                          required
+                          value={formData.loginId}
+                          onChange={handleInputChange}
+                          disabled={!!editingStudent}
+                          className="w-full pl-11 pr-4 py-3 bg-white border-none rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-primary/20 outline-none transition-all disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Student Password</label>
+                      <div className="relative">
+                        <AlertCircle className="w-4 h-4 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                        <input 
+                          type="text" 
+                          name="loginPassword"
+                          required
+                          value={formData.loginPassword}
+                          onChange={handleInputChange}
+                          className="w-full pl-11 pr-4 py-3 bg-white border-none rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Login Password</label>
-                  <div className="relative">
-                    <AlertCircle className="w-4 h-4 text-indigo-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                    <input 
-                      type="text" 
-                      name="loginPassword"
-                      required
-                      value={formData.loginPassword}
-                      onChange={handleInputChange}
-                      className="w-full pl-11 pr-4 py-3 bg-white border-none rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                    />
+
+                {/* Parent Login */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 pb-2 border-b border-indigo-200/50">
+                    <Heart className="w-4 h-4 text-rose-500" />
+                    <h4 className="text-sm font-black text-rose-500 uppercase tracking-widest">Parent Login</h4>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Parent ID / Username</label>
+                      <div className="relative">
+                        <Users className="w-4 h-4 text-rose-300 absolute left-4 top-1/2 -translate-y-1/2" />
+                        <input 
+                          type="text" 
+                          name="parentLoginId"
+                          required
+                          value={formData.parentLoginId}
+                          onChange={handleInputChange}
+                          disabled={!!editingStudent}
+                          className="w-full pl-11 pr-4 py-3 bg-white border-none rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-rose-200 outline-none transition-all disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Parent Password</label>
+                      <div className="relative">
+                        <AlertCircle className="w-4 h-4 text-rose-300 absolute left-4 top-1/2 -translate-y-1/2" />
+                        <input 
+                          type="text" 
+                          name="parentLoginPassword"
+                          required
+                          value={formData.parentLoginPassword}
+                          onChange={handleInputChange}
+                          className="w-full pl-11 pr-4 py-3 bg-white border-none rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-rose-200 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1544,7 +1630,7 @@ export const Students: React.FC = () => {
                       </select>
                     </div>
                     {formData.transportMode === 'College Bus' && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Route Name</label>
                           <input 
@@ -1593,7 +1679,7 @@ export const Students: React.FC = () => {
                       </label>
                     </div>
                     {formData.isHosteller && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Hostel Name</label>
                           <input 

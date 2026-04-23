@@ -42,7 +42,7 @@ import { cn, formatCurrency, formatDate } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, testSupabaseConnection } from '../../lib/supabase';
 import QRCode from 'react-qr-code';
-import { NoticeTicker } from '../../components/NoticeTicker';
+// import { NoticeTicker } from '../../components/NoticeTicker';
 
 const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -56,6 +56,7 @@ export const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showQRPayment, setShowQRPayment] = useState(false);
   const [attendancePercent, setAttendancePercent] = useState(0);
+  const [notices, setNotices] = useState<any[]>([]);
   const [todayStudyActivities, setTodayStudyActivities] = useState<any[]>([]);
   const [dbStatus, setDbStatus] = useState<{ connected: boolean; message: string; details?: string } | null>(null);
   const [collegeName, setCollegeName] = useState('EduNexus');
@@ -175,6 +176,10 @@ export const Dashboard: React.FC = () => {
         { user: 'System', action: 'Welcome to', target: `${collegeName} Dashboard`, time: 'Just now', icon: Bell, color: 'text-indigo-600', bg: 'bg-indigo-50' }
       ]);
 
+      // Fetch Notices
+      const { data: noticesData } = await supabase.from('notices').select('*').order('created_at', { ascending: false }).limit(5);
+      setNotices(noticesData || []);
+
       // 5. Upcoming Exams
       const { data: exams } = await supabase
         .from('exams')
@@ -195,7 +200,7 @@ export const Dashboard: React.FC = () => {
 
       // 7. Attendance (for Students/Parents)
       if (user.role === 'STUDENT' || user.role === 'PARENT') {
-        const studentId = user.role === 'STUDENT' ? user.id : 'STU001'; // Mock for parent
+        const studentId = user.role === 'STUDENT' ? user.id : user.id.replace('P-', '');
         const { data: att } = await supabase.from('attendance').select('status').eq('student_id', studentId);
         if (att && att.length > 0) {
           const present = att.filter(a => a.status.toUpperCase() === 'PRESENT').length;
@@ -214,11 +219,13 @@ export const Dashboard: React.FC = () => {
 
   if (!user) return null;
 
-  if (user.role === 'PARENT') {
-    return <Navigate to="/parent-panel" replace />;
-  }
+  if (user.role === 'PARENT') return <Navigate to="/parent-panel" replace />;
+  if (user.role === 'STUDENT') return <Navigate to="/student-panel" replace />;
+  if (user.role === 'FACULTY') return <Navigate to="/faculty-panel" replace />;
+  if (user.role === 'STAFF') return <Navigate to="/staff-panel" replace />;
+  if (user.role === 'ACCOUNTANT') return <Navigate to="/accountant-panel" replace />;
 
-  const isStaff = ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL', 'FACULTY'].includes(user.role);
+  const isStaff = ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL'].includes(user.role);
   const isParent = user.role === 'PARENT';
   const isStudent = user.role === 'STUDENT';
 
@@ -355,6 +362,8 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* <NoticeTicker audience="Admin" /> */}
+
       {/* Role-Based Quick Actions */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         {isStaff && (
@@ -472,9 +481,9 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Enrollment Chart */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-primary/10 shadow-sm">
+        <div className="xl:col-span-2 bg-white p-6 rounded-2xl border border-primary/10 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-primary">Enrollment Trends</h3>
             <select className="text-xs font-medium bg-background border-none rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 outline-none">
@@ -482,8 +491,8 @@ export const Dashboard: React.FC = () => {
               <option>Last Year</option>
             </select>
           </div>
-          <div className="h-64 sm:h-72 w-full relative">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <div className="h-[300px] sm:h-[350px] w-full relative min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
               <BarChart data={enrollmentData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis 
@@ -512,7 +521,7 @@ export const Dashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h3 className="font-bold text-slate-800 mb-6">{isStudent || isParent ? 'Attendance Overview' : 'Fee Distribution'}</h3>
           {isStudent || isParent ? (
-            <div className="flex flex-col items-center justify-center h-full pb-8 pt-4">
+            <div className="flex flex-col items-center justify-center h-[300px] sm:h-[350px] pb-8 pt-4">
               <div className="relative w-40 h-40 sm:w-48 sm:h-48 flex items-center justify-center">
                 <svg className="w-full h-full transform -rotate-90">
                   <circle
@@ -547,8 +556,8 @@ export const Dashboard: React.FC = () => {
             </div>
           ) : (
             <>
-              <div className="h-64 w-full relative">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <div className="h-[300px] sm:h-[350px] w-full relative min-h-[300px]">
+                <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                   <PieChart>
                     <Pie
                       data={feeDistribution}

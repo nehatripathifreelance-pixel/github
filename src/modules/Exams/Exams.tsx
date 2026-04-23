@@ -23,7 +23,8 @@ import {
   FileSearch,
   X,
   TrendingUp,
-  ExternalLink
+  ExternalLink,
+  Printer
 } from 'lucide-react';
 import { cn, formatDate } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
@@ -66,6 +67,7 @@ export const Exams: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
+  const [isScorecardOpen, setIsScorecardOpen] = useState(false);
   const [evaluationMarks, setEvaluationMarks] = useState<StudentMark[]>([]);
   const [manualMarks, setManualMarks] = useState<number>(0);
   const [papers, setPapers] = useState<any[]>([]);
@@ -88,6 +90,7 @@ export const Exams: React.FC = () => {
 
   const [linkedPaper, setLinkedPaper] = useState<any>(null);
   const [scannedSheetBlobUrl, setScannedSheetBlobUrl] = useState<string | null>(null);
+  const [individualMarks, setIndividualMarks] = useState<Record<string, { marks: number, feedback: string }>>({});
 
   useEffect(() => {
     fetchExams();
@@ -240,8 +243,18 @@ export const Exams: React.FC = () => {
   };
 
   const handleManualEvaluate = (result: any) => {
+    const linkedExam = exams.find(e => e.id === result.examId);
+    setSelectedExam(linkedExam);
     setSelectedResult(result);
     setManualMarks(result.marks || 0);
+    
+    // Initialize individual marks from existing evaluation data if available
+    const initialMarks: Record<string, { marks: number, feedback: string }> = {};
+    if (result.evaluation_data && typeof result.evaluation_data === 'object') {
+      Object.assign(initialMarks, result.evaluation_data);
+    }
+    setIndividualMarks(initialMarks);
+    
     setActiveView('evaluate');
 
     // Clean up old blob URL if any
@@ -284,7 +297,8 @@ export const Exams: React.FC = () => {
           marks: manualMarks,
           status: status,
           is_published: true,
-          published_at: new Date().toISOString()
+          published_at: new Date().toISOString(),
+          evaluation_data: individualMarks
         })
         .eq('id', selectedResult.id);
 
@@ -782,40 +796,60 @@ export const Exams: React.FC = () => {
             <h4 className="text-sm font-bold text-indigo-900 mb-2">Evaluation Instructions</h4>
             <p className="text-xs text-indigo-700 leading-relaxed">
               Review the scanned answer sheet on the left. Enter the total marks obtained by the student in the input field above. 
+              {selectedExam?.papers?.questions?.length > 0 && " You can also provide individual marks for each question below."}
               The status (PASSED/FAILED) will be automatically determined based on a 40% passing criteria.
             </p>
           </div>
 
-          {[1, 2, 3].map((q) => (
-            <div key={q} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="px-3 py-1 bg-slate-100 rounded-lg text-xs font-black text-slate-500">QUESTION {q}</span>
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="number" 
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value) || 0;
-                      // Simple logic to add up if it's the first time or something? 
-                      // Actually, let's just make it simpler: the user edits the TOP score.
-                      // But we can help them.
-                    }}
-                    placeholder="Score"
-                    className="w-16 px-3 py-1 bg-background border-none rounded-lg text-sm font-black text-center focus:ring-2 focus:ring-primary/20 outline-none"
-                  />
-                  <span className="text-slate-400 font-bold">/ 20</span>
+          {(selectedExam?.papers?.questions || []).length > 0 ? (
+            selectedExam.papers.questions.map((q: any, idx: number) => (
+              <div key={q.id || idx} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="px-3 py-1 bg-slate-100 rounded-lg text-xs font-black text-slate-500">
+                    QUESTION {idx + 1}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number" 
+                      value={individualMarks[q.id]?.marks || 0}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setIndividualMarks(prev => ({
+                          ...prev,
+                          [q.id]: { ...prev[q.id], marks: val }
+                        }));
+                      }}
+                      placeholder="Score"
+                      className="w-16 px-3 py-1 bg-background border-none rounded-lg text-sm font-black text-center focus:ring-2 focus:ring-primary/20 outline-none"
+                    />
+                    <span className="text-slate-400 font-bold">/ {q.marks}</span>
+                  </div>
                 </div>
+                <div className="p-6 bg-background rounded-2xl border border-slate-100">
+                  <p className="text-sm font-bold text-slate-600 leading-relaxed italic">
+                    "{q.text}"
+                  </p>
+                </div>
+                <textarea 
+                  value={individualMarks[q.id]?.feedback || ''}
+                  onChange={(e) => {
+                    setIndividualMarks(prev => ({
+                      ...prev,
+                      [q.id]: { ...prev[q.id], feedback: e.target.value }
+                    }));
+                  }}
+                  placeholder="Add feedback for this answer..."
+                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
+                />
               </div>
-              <div className="p-6 bg-background rounded-2xl border border-slate-100">
-                <p className="text-sm font-bold text-slate-600 leading-relaxed italic">
-                  "The core principles of OOP are Encapsulation, Inheritance, Polymorphism, and Abstraction. These principles help in creating modular, reusable, and maintainable code..."
-                </p>
-              </div>
-              <textarea 
-                placeholder="Add feedback for this answer..."
-                className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
-              />
+            ))
+          ) : (
+            <div className="py-20 flex flex-col items-center justify-center text-slate-400 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+              <FileSearch className="w-10 h-10 opacity-20 mb-2" />
+              <p className="font-bold">No questions to evaluate</p>
+              <p className="text-xs">This paper has no individual questions configured.</p>
             </div>
-          ))}
+          )}
         </div>
 
         <div className="p-8 bg-slate-50 flex items-center justify-end gap-3">
@@ -1327,7 +1361,14 @@ export const Exams: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 text-right">
                   <button 
-                    onClick={() => handleManualEvaluate(res)}
+                    onClick={() => {
+                      if (['STUDENT', 'PARENT'].includes(user?.role || '')) {
+                        setSelectedResult(res);
+                        setIsScorecardOpen(true);
+                      } else {
+                        handleManualEvaluate(res);
+                      }
+                    }}
                     className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
                   >
                     <Eye className="w-4 h-4" />
@@ -1341,8 +1382,105 @@ export const Exams: React.FC = () => {
     </div>
   );
 
+  const renderScorecard = () => {
+    if (!selectedResult) return null;
+    const exam = exams.find(e => e.id === selectedResult.examId);
+    const paper = exam?.papers;
+    const evaluationData = selectedResult.evaluation_data || {};
+
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        >
+          <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-primary/5">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary">
+                <Award className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-slate-800">Exam Scorecard</h2>
+                <p className="text-slate-500 text-sm font-bold">{exam?.title || 'Unknown Exam'}</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setIsScorecardOpen(false)}
+              className="p-3 bg-white text-slate-400 hover:text-rose-500 rounded-2xl shadow-sm hover:shadow-md transition-all"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-8 space-y-6">
+            <div className="flex items-center justify-between p-6 bg-slate-50 rounded-3xl border border-slate-100">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Marks Obtained</p>
+                <h3 className="text-3xl font-black text-primary">
+                  {selectedResult.marks} <span className="text-slate-300 text-lg">/ {selectedResult.totalMarks}</span>
+                </h3>
+              </div>
+              <div className={cn(
+                "px-6 py-2 rounded-2xl text-xs font-black uppercase tracking-widest shadow-sm",
+                selectedResult.status === 'PASSED' ? "bg-emerald-500 text-white shadow-emerald-200" : "bg-rose-500 text-white shadow-rose-200"
+              )}>
+                {selectedResult.status}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Question-wise Breakdown</h4>
+              {paper?.questions?.length > 0 ? (
+                paper.questions.map((q: any, idx: number) => {
+                  const evalItem = evaluationData[q.id] || { marks: 0, feedback: '' };
+                  return (
+                    <div key={q.id} className="p-5 bg-white rounded-2xl border border-slate-100 shadow-sm border-l-4 border-l-primary/20">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-black text-slate-400">Q{idx + 1} ({q.type})</span>
+                        <span className="text-sm font-black text-primary">{evalItem.marks} / {q.marks}</span>
+                      </div>
+                      <p className="text-sm font-bold text-slate-700 mb-3">{q.text}</p>
+                      {evalItem.feedback && (
+                        <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
+                          <p className="text-[10px] font-black text-primary uppercase mb-1">Faculty Feedback</p>
+                          <p className="text-xs text-slate-600 italic">"{evalItem.feedback}"</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-10 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <p className="text-xs text-slate-400 font-bold">No question details available</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+             <button 
+              onClick={() => window.print()}
+              className="px-6 py-3 bg-white text-slate-600 rounded-2xl font-bold border border-slate-200 hover:bg-slate-100 transition-all flex items-center gap-2"
+            >
+              <Printer className="w-4 h-4" />
+              Print Result
+            </button>
+            <button 
+              onClick={() => setIsScorecardOpen(false)}
+              className="px-8 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+            >
+              Close
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-8">
+      {isScorecardOpen && renderScorecard()}
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -1467,7 +1605,7 @@ export const Exams: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Session</label>
                     <select 
@@ -1498,11 +1636,7 @@ export const Exams: React.FC = () => {
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                     >
                       <option value="">Select Course</option>
-                      {courses.length > 0 ? (
-                        courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)
-                      ) : (
-                        academicSettings.courses?.map((c: string) => <option key={c} value={c}>{c}</option>)
-                      )}
+                      {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1520,7 +1654,7 @@ export const Exams: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Date</label>
                     <input 
@@ -1543,18 +1677,18 @@ export const Exams: React.FC = () => {
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Duration (Minutes)</label>
-                  <input 
-                    type="number" 
-                    name="duration"
-                    required
-                    value={formData.duration}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  />
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Duration (Minutes)</label>
+                    <input 
+                      type="number" 
+                      name="duration"
+                      required
+                      value={formData.duration}
+                      onChange={handleInputChange}
+                      placeholder="120"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">

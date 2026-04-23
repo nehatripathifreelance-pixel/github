@@ -57,6 +57,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { title: 'Faculty Panel', icon: UserCheck, path: '/faculty-panel', roles: ['FACULTY'] },
   { title: 'Student Panel', icon: UserCheck, path: '/student-panel', roles: ['STUDENT'] },
   { title: 'Parent Panel', icon: Heart, path: '/parent-panel', roles: ['PARENT'] },
+  { title: 'Accountant Panel', icon: CreditCard, path: '/accountant-panel', roles: ['ACCOUNTANT'] },
   { title: 'Front Office', icon: MessageSquare, path: '/front-office', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL', 'STAFF'] },
   { title: 'Admissions', icon: UserPlus, path: '/admissions', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL', 'STAFF'] },
   { title: 'Students', icon: Users, path: '/students', roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'PRINCIPAL', 'STAFF'] },
@@ -85,7 +86,7 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ child
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const [settings, setSettings] = useState({ collegeName: 'EduNexus', logo: '' });
+  const [settings, setSettings] = useState({ collegeName: 'Sun Group of Institutions', logo: '' });
 
   useEffect(() => {
     fetchSettings();

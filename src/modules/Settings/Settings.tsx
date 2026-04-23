@@ -323,82 +323,86 @@ export const Settings: React.FC = () => {
     }
   };
 
-  const ListManager = ({ section, title, items, settingsKey }: { section: 'academic' | 'fees', title: string, items: string[], settingsKey: string }) => (
-    <div className="space-y-4 bg-primary/5 p-6 rounded-2xl border border-primary/10">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-bold text-primary uppercase tracking-wider">{title}</h4>
-        <button 
-          onClick={() => addItem(section, settingsKey)}
-          className="p-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-      </div>
-
-      {addingItem?.section === section && addingItem?.key === settingsKey && (
-        <div className="flex items-center gap-2">
-          <input 
-            type="text"
-            autoFocus
-            value={newItemValue}
-            onChange={(e) => setNewItemValue(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && confirmAddItem()}
-            placeholder="Enter value..."
-            className="flex-1 px-3 py-1.5 bg-white border border-primary/20 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
-          />
-          <button onClick={confirmAddItem} className="p-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all">
-            <Check className="w-4 h-4" />
-          </button>
-          <button onClick={() => setAddingItem(null)} className="p-1.5 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-all">
-            <X className="w-4 h-4" />
+  const ListManager = ({ section, title, items, settingsKey }: { section: 'academic' | 'fees', title: string, items: string[], settingsKey: string }) => {
+    if (!items) return null;
+    
+    return (
+      <div className="space-y-4 bg-primary/5 p-6 rounded-2xl border border-primary/10">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-bold text-primary uppercase tracking-wider">{title}</h4>
+          <button 
+            onClick={() => addItem(section, settingsKey)}
+            className="p-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all"
+          >
+            <Plus className="w-4 h-4" />
           </button>
         </div>
-      )}
 
-      <div className="flex flex-wrap gap-2">
-        {items.map((item, index) => (
-          <div key={index} className="flex flex-col gap-2">
-            {editingItemInfo?.section === section && editingItemInfo?.key === settingsKey && editingItemInfo?.index === index ? (
-              <div className="flex items-center gap-2">
-                <input 
-                  type="text"
-                  autoFocus
-                  value={editItemValue}
-                  onChange={(e) => setEditItemValue(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && confirmEditItem()}
-                  className="px-3 py-1.5 bg-white border border-primary/20 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                />
-                <button onClick={confirmEditItem} className="p-1 text-green-500 hover:bg-green-50 rounded-lg">
-                  <Check className="w-3 h-3" />
-                </button>
-                <button onClick={() => setEditingItemInfo(null)} className="p-1 text-slate-400 hover:bg-slate-50 rounded-lg">
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-primary/10 group shadow-sm">
-                <span className="text-sm font-medium text-slate-700">{item}</span>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button 
-                    onClick={() => editItem(section, settingsKey, index)}
-                    className="p-1 text-slate-400 hover:text-primary transition-colors"
-                  >
-                    <Edit2 className="w-3 h-3" />
+        {addingItem?.section === section && addingItem?.key === settingsKey && (
+          <div className="flex items-center gap-2">
+            <input 
+              type="text"
+              autoFocus
+              value={newItemValue}
+              onChange={(e) => setNewItemValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && confirmAddItem()}
+              placeholder="Enter value..."
+              className="flex-1 px-3 py-1.5 bg-white border border-primary/20 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            <button onClick={confirmAddItem} className="p-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all">
+              <Check className="w-4 h-4" />
+            </button>
+            <button onClick={() => setAddingItem(null)} className="p-1.5 bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition-all">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {items.map((item, index) => (
+            <div key={index} className="flex flex-col gap-2">
+              {editingItemInfo?.section === section && editingItemInfo?.key === settingsKey && editingItemInfo?.index === index ? (
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text"
+                    autoFocus
+                    value={editItemValue}
+                    onChange={(e) => setEditItemValue(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && confirmEditItem()}
+                    className="px-3 py-1.5 bg-white border border-primary/20 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  <button onClick={confirmEditItem} className="p-1 text-green-500 hover:bg-green-50 rounded-lg">
+                    <Check className="w-3 h-3" />
                   </button>
-                  <button 
-                    onClick={() => deleteItem(section, settingsKey, index)}
-                    className="p-1 text-slate-400 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 className="w-3 h-3" />
+                  <button onClick={() => setEditingItemInfo(null)} className="p-1 text-slate-400 hover:bg-slate-50 rounded-lg">
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+              ) : (
+                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-primary/10 group shadow-sm">
+                  <span className="text-sm font-medium text-slate-700">{item}</span>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => editItem(section, settingsKey, index)}
+                      className="p-1 text-slate-400 hover:text-primary transition-colors"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                    <button 
+                      onClick={() => deleteItem(section, settingsKey, index)}
+                      className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-8">

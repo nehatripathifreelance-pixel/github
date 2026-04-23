@@ -1198,7 +1198,7 @@ export const Courses: React.FC = () => {
                 className="flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
               >
                 <Save className="w-5 h-5" />
-                {editingCourse ? 'Update Course' : 'Save Course'}
+                Save Course
               </button>
             </div>
           </motion.div>
@@ -1338,7 +1338,7 @@ export const Courses: React.FC = () => {
                 className="flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
               >
                 <Save className="w-5 h-5" />
-                {editingSlot ? 'Update Slot' : 'Save Slot'}
+                Save Slot
               </button>
             </div>
           </motion.div>
@@ -1422,7 +1422,7 @@ export const Courses: React.FC = () => {
                 className="flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
               >
                 <Save className="w-5 h-5" />
-                {editingSyllabus ? 'Update Item' : 'Save Item'}
+                Save Item
               </button>
             </div>
           </motion.div>
@@ -1554,7 +1554,7 @@ export const Courses: React.FC = () => {
                 className="flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
               >
                 <Save className="w-5 h-5" />
-                {editingStudyLog ? 'Update Log' : 'Save Log'}
+                Save Log
               </button>
             </div>
           </motion.div>

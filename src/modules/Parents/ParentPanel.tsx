@@ -9,6 +9,7 @@ import {
   LogOut, 
   ChevronRight,
   Receipt,
+  Printer,
   X,
   ArrowRight,
   Clock,
@@ -54,6 +55,7 @@ export const ParentPanel: React.FC = () => {
   const [settings, setSettings] = useState<any>({});
   const [notices, setNotices] = useState<any[]>([]);
   const [studyLogs, setStudyLogs] = useState<any[]>([]);
+  const [syllabus, setSyllabus] = useState<any[]>([]);
 
   useEffect(() => {
     fetchChildProgress();
@@ -87,7 +89,7 @@ export const ParentPanel: React.FC = () => {
     const { data } = await supabase
       .from('notices')
       .select('*')
-      .or('target_audience.eq.All,target_audience.eq.Parents')
+      .or('audience.eq.All,audience.eq.Parents')
       .order('created_at', { ascending: false })
       .limit(10);
     if (data) setNotices(data);
@@ -109,11 +111,24 @@ export const ParentPanel: React.FC = () => {
     setIsLoading(true);
     try {
       // 1. Find the student linked to this parent
-      const { data: student, error: studentError } = await supabase
-        .from('students')
-        .select('*')
-        .or(`parent_email.eq.${user.email},parent_phone.eq.${user.email}`)
-        .maybeSingle();
+      // Derive student ID from parent login ID (P-STU... -> STU...)
+      const studentId = user.id.startsWith('P-') ? user.id.replace('P-', '') : '';
+      
+      let student;
+      if (studentId) {
+        const { data } = await supabase.from('students').select('*').eq('id', studentId).maybeSingle();
+        student = data;
+      }
+
+      // Fallback if not found by ID (legacy/manual check)
+      if (!student) {
+        const { data } = await supabase
+          .from('students')
+          .select('*')
+          .or(`parent_email.eq.${user.email},parent_phone.eq.${user.email}`)
+          .maybeSingle();
+        student = data;
+      }
 
       if (student) {
         // 2. Fetch Attendance
@@ -141,7 +156,7 @@ export const ParentPanel: React.FC = () => {
         const { data: exams } = await supabase
           .from('exams')
           .select('*')
-          .eq('course', student.branch) // Using branch as course for now
+          .eq('course_id', student.course_id)
           .gte('date', new Date().toISOString().split('T')[0])
           .order('date', { ascending: true });
 
@@ -177,24 +192,37 @@ export const ParentPanel: React.FC = () => {
           .eq('batch', student.batch)
           .order('day');
 
-        const presentCount = attendance?.filter(a => a.status === 'Present' || a.status === 'PRESENT').length || 0;
-        const totalAttendance = attendance?.length || 0;
+        // 10. Fetch Syllabus
+        const { data: syllabusData } = await supabase
+          .from('syllabus')
+          .select('*')
+          .eq('course_id', student.course_id)
+          .order('unit_number', { ascending: true });
+        
+        setSyllabus(syllabusData || []);
+
+        const attendanceList = attendance || [];
+        const presentCount = attendanceList.filter(a => a.status === 'Present' || a.status === 'PRESENT').length;
+        const totalAttendance = attendanceList.length;
         const attendancePercentage = totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 0;
 
-        const pendingFees = fees?.filter(f => f.status === 'PENDING').reduce((acc, f) => acc + Number(f.amount), 0) || 0;
+        const feesList = fees || [];
+        const pendingFees = feesList.filter(f => f.status === 'PENDING').reduce((acc, f) => acc + Number(f.amount), 0);
 
         setChildProgress({
           student,
           attendance: attendancePercentage,
-          attendanceHistory: attendance || [],
+          attendanceHistory: attendanceList,
           results: results || [],
           pendingFees,
-          feesHistory: fees || [],
+          feesHistory: feesList,
           upcomingExams: exams || [],
           application: application || null,
           courses: courses || [],
           timetable: timetable || []
         });
+      } else {
+        setChildProgress(null);
       }
     } catch (error) {
       console.error('Error fetching child progress:', error);
@@ -330,6 +358,188 @@ export const ParentPanel: React.FC = () => {
     }, 500);
   };
 
+  const handlePrintDocument = (type: 'studylog' | 'timetable' | 'syllabus') => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    let title = '';
+    let content = '';
+
+    if (type === 'studylog') {
+      title = 'Study Log Report';
+      content = `
+        <div class="header">
+          <h1 class="college">Study Log Report</h1>
+          <p class="receipt-no">Student: ${childProgress?.student?.name} | Batch: ${childProgress?.student?.batch}</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Date</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Activities</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Assignment</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${studyLogs.map(log => `
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px; font-size: 12px; font-weight: 700;">${formatDate(log.date)}</td>
+                <td style="padding: 12px; font-size: 12px;">${Array.isArray(log.activities) ? log.activities.join(', ') : log.activities}</td>
+                <td style="padding: 12px; font-size: 12px;">${log.assignment_subject ? `<b>${log.assignment_subject}</b>: ${log.assignment_topic}` : 'None'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else if (type === 'timetable') {
+      title = 'Class Time Table';
+      content = `
+        <div class="header">
+          <h1 class="college">Class Time Table</h1>
+          <p class="receipt-no">Batch: ${childProgress?.student?.batch} | Course: ${childProgress?.student?.branch}</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Day</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Subject</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Time</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Faculty</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${childProgress?.timetable.map(slot => `
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px; font-size: 12px; font-weight: 700;">${slot.day}</td>
+                <td style="padding: 12px; font-size: 12px;">${slot.subject} ${slot.room ? `(${slot.room})` : ''}</td>
+                <td style="padding: 12px; font-size: 12px;">${slot.start_time} - ${slot.end_time}</td>
+                <td style="padding: 12px; font-size: 12px;">${slot.faculty}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else if (type === 'syllabus') {
+      title = 'Course Syllabus';
+      content = `
+        <div class="header">
+          <h1 class="college">Course Syllabus</h1>
+          <p class="receipt-no">Course: ${childProgress?.student?.branch}</p>
+        </div>
+        <div style="margin-top: 20px;">
+          ${syllabus.map(item => `
+            <div class="unit-card">
+              <h3 class="unit-title">Unit ${item.unit_number || '#'}: ${item.unit_title || item.title}</h3>
+              <p class="unit-desc">${item.description || 'No description provided.'}</p>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    const html = `
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }
+            .header { text-align: center; border-bottom: 2px solid #ef4444; padding-bottom: 20px; margin-bottom: 30px; }
+            .college { font-size: 24px; font-weight: 900; color: #ef4444; text-transform: uppercase; margin: 0; }
+            .receipt-no { font-size: 12px; color: #64748b; margin-top: 5px; font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; }
+            td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+            .unit-card { margin-bottom: 20px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
+            .unit-title { margin: 0; color: #ef4444; font-size: 16px; font-weight: 900; }
+            .unit-desc { margin: 10px 0 0; font-size: 14px; color: #475569; }
+            @media print {
+              .no-print { display: none; }
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          ${content}
+          <div style="margin-top: 40px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+            <p>Generated via Parent Portal • ${new Date().toLocaleString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    
+    // Use a more robust printing approach
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 1000);
+  };
+
+  const handleDownloadCSV = (type: 'studylog' | 'timetable') => {
+    let dataToExport: any[] = [];
+    let filename = '';
+
+    if (type === 'studylog') {
+      dataToExport = studyLogs.map(log => ({
+        Date: formatDate(log.date),
+        Course: childProgress?.student?.branch,
+        Batch: childProgress?.student?.batch,
+        Activities: Array.isArray(log.activities) ? log.activities.join('; ') : log.activities,
+        Assignment: log.assignment_subject ? `${log.assignment_subject}: ${log.assignment_topic}` : 'None'
+      }));
+      filename = `study_log_${childProgress?.student?.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+    } else if (type === 'timetable') {
+      dataToExport = childProgress?.timetable.map(slot => ({
+        Day: slot.day,
+        Subject: slot.subject,
+        Time: `${slot.start_time} - ${slot.end_time}`,
+        Faculty: slot.faculty,
+        Room: slot.room || 'N/A'
+      }));
+      filename = `timetable_${childProgress?.student?.batch}_${new Date().toISOString().split('T')[0]}.csv`;
+    }
+
+    if (dataToExport.length === 0) return;
+
+    const headers = Object.keys(dataToExport[0]).join(',');
+    const rows = dataToExport.map(row => 
+      Object.values(row).map(val => 
+        typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
+      ).join(',')
+    ).join('\n');
+
+    const csvContent = `${headers}\n${rows}`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleShare = async (type: string) => {
+    const shareData = {
+      title: `${type} - Parent Portal`,
+      text: `Check out the ${type} for my child in the Parent Portal.`,
+      url: window.location.href
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.log('Share failed:', err);
+      }
+    } else {
+      // Fallback
+      alert(`Share this link: ${window.location.href}`);
+    }
+  };
+
   const handleDownloadSheet = (url: string, name: string) => {
     if (!url) return;
     const link = document.createElement('a');
@@ -376,11 +586,11 @@ export const ParentPanel: React.FC = () => {
           <div class="stats">
             <div class="stat-box">
               <div class="stat-label">Marks Obtained</div>
-              <div class="stat-value">${result.marks} / ${result.total_marks}</div>
+              <div class="stat-value">${result.marks_obtained} / ${result.total_marks}</div>
             </div>
             <div class="stat-box">
               <div class="stat-label">Percentage</div>
-              <div class="stat-value">${Math.round((result.marks / result.total_marks) * 100)}%</div>
+              <div class="stat-value">${Math.round((result.marks_obtained / result.total_marks) * 100)}%</div>
             </div>
           </div>
 
@@ -488,7 +698,7 @@ export const ParentPanel: React.FC = () => {
                     </div>
                     <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Latest Result</p>
                     <p className="text-2xl font-black text-slate-800">
-                      {childProgress.results[0]?.marks || 0}/{childProgress.results[0]?.total_marks || 100}
+                      {childProgress.results[0]?.marks_obtained || 0}/{childProgress.results[0]?.total_marks || 100}
                     </p>
                   </div>
                   <div className="bg-white p-6 rounded-[32px] border border-primary/10 shadow-sm">
@@ -619,6 +829,29 @@ export const ParentPanel: React.FC = () => {
 
           {(activeTab as any) === 'studylog' && (
             <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-black text-slate-800">Complete Study Log</h3>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => handleDownloadCSV('studylog')}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-all border border-emerald-100"
+                  >
+                    <Download className="w-4 h-4" /> Download CSV
+                  </button>
+                  <button 
+                    onClick={() => handlePrintDocument('studylog')}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+                  >
+                    <Printer className="w-4 h-4" /> Print Report
+                  </button>
+                  <button 
+                    onClick={() => handleShare('Study Log')}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all"
+                  >
+                    <MessageSquare className="w-4 h-4" /> Share
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {studyLogs.map((log, i) => (
                   <div key={i} className="bg-white p-8 rounded-[32px] border border-primary/10 shadow-sm space-y-6 group hover:shadow-xl transition-all">
@@ -861,7 +1094,29 @@ export const ParentPanel: React.FC = () => {
 
           {activeTab === 'timetable' && (
             <div className="bg-white p-8 rounded-[32px] border border-primary/10 shadow-sm">
-              <h3 className="text-xl font-black text-slate-800 mb-6">Class Time Table</h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black text-slate-800">Class Time Table</h3>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => handleDownloadCSV('timetable')}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-all border border-emerald-100"
+                  >
+                    <Download className="w-4 h-4" /> Export CSV
+                  </button>
+                  <button 
+                    onClick={() => handlePrintDocument('timetable')}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"
+                  >
+                    <Printer className="w-4 h-4" /> Print
+                  </button>
+                  <button 
+                    onClick={() => handleShare('Time Table')}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all"
+                  >
+                    <MessageSquare className="w-4 h-4" /> Share
+                  </button>
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -911,28 +1166,66 @@ export const ParentPanel: React.FC = () => {
           )}
 
           {activeTab === 'courses' && (
-            <div className="bg-white p-8 rounded-[32px] border border-primary/10 shadow-sm">
-              <h3 className="text-xl font-black text-slate-800 mb-6">Enrolled Courses</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {childProgress.courses.map((course, i) => (
-                  <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-                          <BookOpen className="w-4 h-4" />
+            <div className="space-y-8">
+              <div className="bg-white p-8 rounded-[32px] border border-primary/10 shadow-sm">
+                <h3 className="text-xl font-black text-slate-800 mb-6">Enrolled Courses</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {childProgress.courses.map((course, i) => (
+                    <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                            <BookOpen className="w-4 h-4" />
+                          </div>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{course.code}</span>
                         </div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{course.code}</span>
+                        <h4 className="text-lg font-black text-slate-800">{course.name}</h4>
+                        <p className="text-sm text-slate-500 mt-1">{course.description || 'Full-time academic course'}</p>
                       </div>
-                      <h4 className="text-lg font-black text-slate-800">{course.name}</h4>
-                      <p className="text-sm text-slate-500 mt-1">{course.description || 'Full-time academic course'}</p>
+                      <div className="text-right">
+                        <p className="text-xs font-black text-primary uppercase tracking-widest mb-1">Duration</p>
+                        <p className="text-sm font-black text-slate-900">{course.duration} Years</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs font-black text-primary uppercase tracking-widest mb-1">Duration</p>
-                      <p className="text-sm font-black text-slate-900">{course.duration} Years</p>
+                  ))}
+                </div>
+              </div>
+
+              {syllabus.length > 0 && (
+                <div className="bg-white p-8 rounded-[32px] border border-primary/10 shadow-sm">
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800">Course Syllabus</h3>
+                      <p className="text-sm text-slate-500 font-medium">Curriculum overview and unit breakdown.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => handlePrintDocument('syllabus')}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"
+                      >
+                        <Printer className="w-4 h-4" /> Print
+                      </button>
+                      <button 
+                        onClick={() => handleShare('Syllabus')}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all"
+                      >
+                        <MessageSquare className="w-4 h-4" /> Share
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {syllabus.map((item, i) => (
+                      <div key={i} className="p-6 bg-slate-50 rounded-[24px] border border-slate-100 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-lg">Unit {item.unit_number}</span>
+                        </div>
+                        <h4 className="font-black text-slate-800">{item.unit_title || item.title}</h4>
+                        <p className="text-sm text-slate-500 leading-relaxed">{item.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

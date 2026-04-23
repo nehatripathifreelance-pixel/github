@@ -22,6 +22,7 @@ export const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [settings, setSettings] = useState({ collegeName: 'College Management System', logo: '' });
+  const [authRole, setAuthRole] = useState<'ADMIN' | 'STUDENT' | 'PARENT' | 'STAFF' | 'ACCOUNTANT'>('ADMIN');
 
   useEffect(() => {
     fetchSettings();
@@ -96,6 +97,27 @@ export const Login: React.FC = () => {
           <p className="text-slate-500 font-medium text-sm">Please sign in to your account.</p>
         </div>
 
+        {/* Role Selection Tabs */}
+        <div className="flex bg-slate-100 p-1 rounded-2xl mb-8">
+          {[
+            { id: 'ADMIN', label: 'Admin/Staff' },
+            { id: 'ACCOUNTANT', label: 'Accountant' },
+            { id: 'STUDENT', label: 'Student' },
+            { id: 'PARENT', label: 'Parent' }
+          ].map((role) => (
+            <button
+              key={role.id}
+              onClick={() => setAuthRole(role.id as any)}
+              className={cn(
+                "flex-1 py-2.5 rounded-xl text-xs font-bold transition-all",
+                authRole === role.id ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              {role.label}
+            </button>
+          ))}
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
           {error && (
             <motion.div 
@@ -115,7 +137,7 @@ export const Login: React.FC = () => {
               </div>
               <input 
                 type="text" 
-                placeholder="Email Address"
+                placeholder={authRole === 'STUDENT' ? "Student ID" : authRole === 'PARENT' ? "Parent Login ID" : authRole === 'ACCOUNTANT' ? "Accountant ID" : "Email Address"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
